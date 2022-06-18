@@ -1,5 +1,6 @@
 ﻿using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Distributed;
 using SocialNetwork.Domain.Entities;
 using SocialNetwork.Persistence.Context;
 using SocialNetwork.Persistence.DAL.CQRS.Commands.Request;
@@ -10,6 +11,7 @@ namespace SocialNetwork.Persistence.DAL.CQRS.Handlers.CommandHandlers
     public class CreateGroupCommandHandler : IRequestHandler<CreateGroupCommandRequest, CreateGroupCommandResponse>
     {
         private readonly ApplicationDbContext _context;
+        private readonly IDistributedCache _distributedCache;
         public CreateGroupCommandHandler(ApplicationDbContext context)
         {
             _context = context;
@@ -27,6 +29,11 @@ namespace SocialNetwork.Persistence.DAL.CQRS.Handlers.CommandHandlers
 
             createGroupCommandResponse.IsSuccess = result.State == EntityState.Added;
             createGroupCommandResponse.Group = result.Entity;
+
+            if(createGroupCommandResponse.IsSuccess)
+            {
+                _distributedCache.RemoveAsync("group");
+            }
 
             return createGroupCommandResponse;
         }

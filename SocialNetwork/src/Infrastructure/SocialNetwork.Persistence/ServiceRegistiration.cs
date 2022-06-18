@@ -31,6 +31,12 @@ namespace SocialNetwork.Persistence
             serviceCollection.AddTransient<IUserRepository, UserRepository>();
             serviceCollection.AddTransient<IUnitOfWork, UnitOfWork.UnitOfWork>();
 
+            serviceCollection.AddStackExchangeRedisCache(options =>
+            {
+                options.InstanceName = "RedisCacheServer";
+                options.Configuration = "localhost";
+
+            });
         }
     }
 }

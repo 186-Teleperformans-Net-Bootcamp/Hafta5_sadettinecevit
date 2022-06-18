@@ -6,8 +6,10 @@ using SocialNetwork.Application.Interfaces.Repositories;
 using SocialNetwork.Domain.Entities;
 using SocialNetwork.Persistence.DAL.CQRS.Commands.Request;
 using SocialNetwork.Persistence.DAL.CQRS.Commands.Response;
+using SocialNetwork.Persistence.DAL.CQRS.Queries;
 using SocialNetwork.Persistence.DAL.CQRS.Queries.Request;
 using SocialNetwork.Persistence.DAL.CQRS.Queries.Response;
+using System.Text.Json;
 
 namespace SocialNetwork.WebAPI.Controllers
 {
@@ -25,9 +27,20 @@ namespace SocialNetwork.WebAPI.Controllers
         public async Task<IActionResult> GetAll([FromQuery] GetAllCommentQueryRequest request)
         {
             IActionResult retVal = null;
-            List<GetAllCommentQueryResponse> result = await _mediator.Send(request);
+            PaginingResponse<List<GetAllCommentQueryResponse>> result = await _mediator.Send(request);
 
-            retVal = Ok(result);
+            Response.Headers.Add("x-Pagination", JsonSerializer.Serialize(
+                new
+                {
+                    result.Total,
+                    result.TotalPage,
+                    result.Page,
+                    result.Limit,
+                    result.HasPrevious,
+                    result.HasNext
+                }));
+
+            retVal = Ok(result.Response);
             return retVal;
         }
 

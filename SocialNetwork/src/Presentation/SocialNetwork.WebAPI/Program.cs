@@ -38,12 +38,6 @@ builder.Services.AddAuthentication(options =>
 
 builder.Services.AddControllers();
 builder.Services.AddMemoryCache();
-builder.Services.AddStackExchangeRedisCache(options =>
-    {
-        options.InstanceName = "RedisCacheServer";
-        options.Configuration = "localhost";
-
-    });
 
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();

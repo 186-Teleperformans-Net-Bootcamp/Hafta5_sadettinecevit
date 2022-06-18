@@ -1,5 +1,6 @@
 ﻿using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Distributed;
 using SocialNetwork.Domain.Entities;
 using SocialNetwork.Persistence.Context;
 using SocialNetwork.Persistence.DAL.CQRS.Commands.Request;
@@ -10,8 +11,10 @@ namespace SocialNetwork.Persistence.DAL.CQRS.Handlers.CommandHandlers
     public class CreateFriendRequestCommandHandler : IRequestHandler<CreateFriendRequestCommandRequest, CreateFriendRequestCommandResponse>
     {
         private readonly ApplicationDbContext _context;
-        public CreateFriendRequestCommandHandler(ApplicationDbContext context)
+        private readonly IDistributedCache _distributedCache;
+        public CreateFriendRequestCommandHandler(IDistributedCache distributedCache, ApplicationDbContext context)
         {
+            _distributedCache = distributedCache;
             _context = context;
         }
 
@@ -29,6 +32,11 @@ namespace SocialNetwork.Persistence.DAL.CQRS.Handlers.CommandHandlers
 
             createFriendRequestCommandResponse.IsSuccess = result.State == EntityState.Added;
             createFriendRequestCommandResponse.FriendRequest = result.Entity;
+
+            if(createFriendRequestCommandResponse.FriendRequest != null)
+            {
+                _distributedCache.RemoveAsync("friends");
+            }
 
             return createFriendRequestCommandResponse;
         }

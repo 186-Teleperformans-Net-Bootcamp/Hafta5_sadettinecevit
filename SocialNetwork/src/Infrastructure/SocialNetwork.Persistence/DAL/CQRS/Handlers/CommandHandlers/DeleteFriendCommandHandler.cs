@@ -1,5 +1,6 @@
 ﻿using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Distributed;
 using SocialNetwork.Domain.Entities;
 using SocialNetwork.Persistence.Context;
 using SocialNetwork.Persistence.DAL.CQRS.Commands.Request;
@@ -10,8 +11,10 @@ namespace SocialNetwork.Persistence.DAL.CQRS.Handlers.CommandHandlers
     public class DeleteFriendCommandHandler : IRequestHandler<DeleteFriendCommandRequest, DeleteFriendCommandResponse>
     {
         private readonly ApplicationDbContext _context;
-        public DeleteFriendCommandHandler(ApplicationDbContext context)
+        private readonly IDistributedCache _distributedCache;
+        public DeleteFriendCommandHandler(IDistributedCache distributedCache, ApplicationDbContext context)
         {
+            _distributedCache = distributedCache;
             _context = context;
         }
 
@@ -22,6 +25,11 @@ namespace SocialNetwork.Persistence.DAL.CQRS.Handlers.CommandHandlers
             Friend friend = _context.Friends.FirstOrDefault<Friend>(f => f.Id == deleteFriendCommandRequest.Id);
             EntityState result = _context.Friends.Remove(friend).State;
             deleteFriendCommandResponse.IsSuccess = result == EntityState.Deleted;
+
+            if(deleteFriendCommandResponse.IsSuccess)
+            {
+                _distributedCache.RemoveAsync("friends");
+            }
 
             return deleteFriendCommandResponse;
         }

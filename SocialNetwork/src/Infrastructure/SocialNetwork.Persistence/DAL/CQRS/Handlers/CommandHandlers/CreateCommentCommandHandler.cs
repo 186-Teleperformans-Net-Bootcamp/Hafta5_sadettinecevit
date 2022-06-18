@@ -1,5 +1,6 @@
 ﻿using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Distributed;
 using SocialNetwork.Domain.Entities;
 using SocialNetwork.Persistence.Context;
 using SocialNetwork.Persistence.DAL.CQRS.Commands.Request;
@@ -10,9 +11,11 @@ namespace SocialNetwork.Persistence.DAL.CQRS.Handlers.CommandHandlers
     public class CreateCommentCommandHandler : IRequestHandler<CreateCommentCommandRequest, CreateCommentCommandResponse>
     {
         private readonly ApplicationDbContext _context;
-        public CreateCommentCommandHandler(ApplicationDbContext context)
+        private readonly IDistributedCache _distributedCache;
+        public CreateCommentCommandHandler(ApplicationDbContext context, IDistributedCache distributedCache)
         {
             _context = context;
+            _distributedCache = distributedCache;
         }
 
         public async Task<CreateCommentCommandResponse> Handle(CreateCommentCommandRequest createCommentCommandRequest, CancellationToken cancellationToken)
@@ -31,6 +34,11 @@ namespace SocialNetwork.Persistence.DAL.CQRS.Handlers.CommandHandlers
 
             createCommentCommandResponse.IsSuccess = result.State == EntityState.Added;
             createCommentCommandResponse.Comment = result.Entity;
+
+            if(createCommentCommandResponse.IsSuccess)
+            {
+                _distributedCache.RemoveAsync("comments");
+            }
 
             return createCommentCommandResponse;
         }

@@ -1,14 +1,10 @@
 ﻿using MediatR;
 using SocialNetwork.Persistence.DAL.CQRS.Queries.Response;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using SocialNetwork.Persistence.DAL.Filters;
 
 namespace SocialNetwork.Persistence.DAL.CQRS.Queries.Request
 {
-    public class GetAllCommentQueryRequest : IRequest<List<GetAllCommentQueryResponse>>
+    public class GetAllCommentQueryRequest : CommentPaginingRequest, IRequest<PaginingResponse<List<GetAllCommentQueryResponse>>>
     {
     }
 }

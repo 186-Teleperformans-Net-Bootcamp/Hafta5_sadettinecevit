@@ -1,5 +1,6 @@
 ﻿using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Distributed;
 using SocialNetwork.Domain.Entities;
 using SocialNetwork.Persistence.Context;
 using SocialNetwork.Persistence.DAL.CQRS.Commands.Request;
@@ -10,9 +11,11 @@ namespace SocialNetwork.Persistence.DAL.CQRS.Handlers.CommandHandlers
     public class DeleteMessageCommandHandler : IRequestHandler<DeleteMessageCommandRequest, DeleteMessageCommandResponse>
     {
         private readonly ApplicationDbContext _context;
-        public DeleteMessageCommandHandler(ApplicationDbContext context)
+        private readonly IDistributedCache _distributedCache;
+        public DeleteMessageCommandHandler(IDistributedCache distributedCache, ApplicationDbContext context)
         {
             _context = context;
+            _distributedCache = distributedCache;
         }
 
         public async Task<DeleteMessageCommandResponse> Handle(DeleteMessageCommandRequest deleteMessageCommandRequest, CancellationToken cancellationToken)
@@ -24,6 +27,11 @@ namespace SocialNetwork.Persistence.DAL.CQRS.Handlers.CommandHandlers
             {
                 IsSuccess = result == EntityState.Deleted
             };
+
+            if(deleteMessageCommandResponse.IsSuccess)
+            {
+                _distributedCache.RemoveAsync("messages");
+            }
 
             return deleteMessageCommandResponse;
         }

@@ -1,5 +1,6 @@
 ﻿using MediatR;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.Extensions.Caching.Distributed;
 using SocialNetwork.Domain.Entities;
 using SocialNetwork.Persistence.Context;
 using SocialNetwork.Persistence.DAL.CQRS.Commands.Request;
@@ -9,11 +10,11 @@ namespace SocialNetwork.Persistence.DAL.CQRS.Handlers.CommandHandlers
 {
     public class CreateUserCommandHandler : IRequestHandler<CreateUserCommandRequest, CreateUserCommandResponse>
     {
-        private readonly ApplicationDbContext _context;
         private readonly UserManager<User> _userManager;
-        public CreateUserCommandHandler(ApplicationDbContext context, UserManager<User> userManager)
+        private readonly IDistributedCache _distributedCache;
+        public CreateUserCommandHandler(IDistributedCache distributedCache, UserManager<User> userManager)
         {
-            _context = context;
+            _distributedCache = distributedCache;
             _userManager = userManager;
         }
 
@@ -33,6 +34,11 @@ namespace SocialNetwork.Persistence.DAL.CQRS.Handlers.CommandHandlers
 
             createUserCommandResponse.IsSuccess = result.Succeeded;
             createUserCommandResponse.User = result.Succeeded ? user : null;
+
+            if(result.Succeeded)
+            {
+                _distributedCache.RemoveAsync("users");
+            }
 
             return createUserCommandResponse;
         }

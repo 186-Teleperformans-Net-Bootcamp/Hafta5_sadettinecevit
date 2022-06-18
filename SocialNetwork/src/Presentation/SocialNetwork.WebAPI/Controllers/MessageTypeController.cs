@@ -7,8 +7,10 @@ using SocialNetwork.Application.Interfaces.Repositories;
 using SocialNetwork.Domain.Entities;
 using SocialNetwork.Persistence.DAL.CQRS.Commands.Request;
 using SocialNetwork.Persistence.DAL.CQRS.Commands.Response;
+using SocialNetwork.Persistence.DAL.CQRS.Queries;
 using SocialNetwork.Persistence.DAL.CQRS.Queries.Request;
 using SocialNetwork.Persistence.DAL.CQRS.Queries.Response;
+using System.Text.Json;
 
 namespace SocialNetwork.WebAPI.Controllers
 {
@@ -18,14 +20,11 @@ namespace SocialNetwork.WebAPI.Controllers
     public class MessageTypeController : ControllerBase
     {
         private readonly IMessageTypeRepository _messageTypeRepository;
-        private readonly IMemoryCache _memoryCache;
         private readonly IMediator _mediator;
 
-        public MessageTypeController(IMessageTypeRepository messageTypeRepository,
-            IMemoryCache memoryCache, IMediator mediator)
+        public MessageTypeController(IMessageTypeRepository messageTypeRepository, IMediator mediator)
         {
             _messageTypeRepository = messageTypeRepository;
-            _memoryCache = memoryCache;
             _mediator = mediator;
         }
 
@@ -50,22 +49,21 @@ namespace SocialNetwork.WebAPI.Controllers
         [HttpGet("GetAllMessageType")]
         public async Task<IActionResult> GetAll([FromQuery] GetAllMessageTypeQueryRequest request)
         {
-            List<GetAllMessageTypeQueryResponse> result = null;
             IActionResult retVal = null;
+            PaginingResponse<List<GetAllMessageTypeQueryResponse>> result = await _mediator.Send(request);
 
-            if (!_memoryCache.TryGetValue("messageTypes", out result))
-            {
-                result = await _mediator.Send(request);
+            Response.Headers.Add("x-Pagination", JsonSerializer.Serialize(
+                new
+                {
+                    result.Total,
+                    result.TotalPage,
+                    result.Page,
+                    result.Limit,
+                    result.HasPrevious,
+                    result.HasNext
+                }));
 
-                MemoryCacheEntryOptions memoryCacheEntryOptions = new MemoryCacheEntryOptions();
-                memoryCacheEntryOptions.AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(1);
-                memoryCacheEntryOptions.SlidingExpiration = TimeSpan.FromMinutes(30);
-                memoryCacheEntryOptions.Priority = CacheItemPriority.Normal;
-
-                _memoryCache.Set("messageTypes", result, memoryCacheEntryOptions);
-            }
-
-            retVal = Ok(result);
+            retVal = Ok(result.Response);
 
             return retVal;
         }
@@ -78,7 +76,6 @@ namespace SocialNetwork.WebAPI.Controllers
             IActionResult retVal = null;
             if (result.IsSuccess)
             {
-                _memoryCache.Remove("messageTypes");
                 retVal = Ok(result);
             }
             else
@@ -97,7 +94,6 @@ namespace SocialNetwork.WebAPI.Controllers
             IActionResult retVal = null;
             if (result != null)
             {
-                _memoryCache.Remove("messageTypes");
                 retVal = Ok(result);
             }
             else
