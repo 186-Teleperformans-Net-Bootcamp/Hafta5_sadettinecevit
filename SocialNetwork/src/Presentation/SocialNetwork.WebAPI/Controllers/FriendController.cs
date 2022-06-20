@@ -86,7 +86,7 @@ namespace SocialNetwork.WebAPI.Controllers
         [HttpPut("UpdateFriend")]
         public async Task<IActionResult> Update(Friend friend)
         {
-            Friend result = await _friendRepository.Update(friend);
+            Friend result = _friendRepository.Update(friend).Result.Entity;
 
             IActionResult retVal = null;
             if (result != null)

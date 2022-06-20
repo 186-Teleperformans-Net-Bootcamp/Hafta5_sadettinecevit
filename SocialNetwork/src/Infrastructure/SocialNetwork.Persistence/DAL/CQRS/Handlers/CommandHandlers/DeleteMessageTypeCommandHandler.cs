@@ -1,20 +1,22 @@
 ﻿using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.Extensions.Caching.Distributed;
+using SocialNetwork.Application.Interfaces.Repositories;
 using SocialNetwork.Domain.Entities;
-using SocialNetwork.Persistence.Context;
 using SocialNetwork.Persistence.DAL.CQRS.Commands.Request;
 using SocialNetwork.Persistence.DAL.CQRS.Commands.Response;
+using SocialNetwork.Persistence.Repository;
 
 namespace SocialNetwork.Persistence.DAL.CQRS.Handlers.CommandHandlers
 {
     public class DeleteMessageTypeCommandHandler : IRequestHandler<DeleteMessageTypeCommandRequest, DeleteMessageTypeCommandResponse>
     {
-        private readonly ApplicationDbContext _context;
+        private readonly IMessageTypeRepository _repo;
         private readonly IDistributedCache _distributedCache;
-        public DeleteMessageTypeCommandHandler(ApplicationDbContext context, IDistributedCache distributedCache)
+        public DeleteMessageTypeCommandHandler(MessageTypeRepository repo, IDistributedCache distributedCache)
         {
-            _context = context;
+            _repo = repo;
             _distributedCache = distributedCache;
         }
 
@@ -22,13 +24,13 @@ namespace SocialNetwork.Persistence.DAL.CQRS.Handlers.CommandHandlers
         {
             DeleteMessageTypeCommandResponse deleteMessageTypeCommandResponse = new DeleteMessageTypeCommandResponse();
 
-            MessageType messageType = _context.MessageTypes.FirstOrDefault<MessageType>(m=>m.Id == deleteMessageTypeCommandRequest.Id);
-            EntityState result = _context.MessageTypes.Remove(messageType).State;
-            deleteMessageTypeCommandResponse.IsSuccess = result == EntityState.Deleted;
+            MessageType messageType = _repo.GetAsync().Result.FirstOrDefault<MessageType>(m=>m.Id == deleteMessageTypeCommandRequest.Id);
+            EntityEntry<MessageType> result = await _repo.Delete(messageType);
+            deleteMessageTypeCommandResponse.IsSuccess = result.State == EntityState.Deleted;
 
             if (deleteMessageTypeCommandResponse.IsSuccess)
             {
-                _distributedCache.RemoveAsync("messageTypes");
+                await _distributedCache.RemoveAsync("messageTypes");
             }
 
             return deleteMessageTypeCommandResponse;

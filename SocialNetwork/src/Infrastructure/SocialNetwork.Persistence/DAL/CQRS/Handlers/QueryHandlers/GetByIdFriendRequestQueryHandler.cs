@@ -1,23 +1,25 @@
 ﻿using MediatR;
+using SocialNetwork.Application.Interfaces.Repositories;
 using SocialNetwork.Domain.Entities;
 using SocialNetwork.Persistence.Context;
 using SocialNetwork.Persistence.DAL.CQRS.Queries.Request;
 using SocialNetwork.Persistence.DAL.CQRS.Queries.Response;
+using SocialNetwork.Persistence.Repository;
 
 namespace SocialNetwork.Persistence.DAL.CQRS.Handlers.QueryHandlers
 {
     public class GetByIdFriendRequestQueryHandler : IRequestHandler<GetByIdFriendRequestQueryRequest, GetByIdFriendRequestQueryResponse>
     {
-        private readonly ApplicationDbContext _context;
+        private readonly IFriendRequestRepository _repo;
 
-        public GetByIdFriendRequestQueryHandler(ApplicationDbContext context)
+        public GetByIdFriendRequestQueryHandler(FriendRequestRepository repo)
         {
-            _context = context;
+            _repo = repo;
         }
 
         public async Task<GetByIdFriendRequestQueryResponse> Handle(GetByIdFriendRequestQueryRequest request, CancellationToken cancellationToken)
         {
-            FriendRequest result = _context.FriendRequests.FirstOrDefault(f => f.Id == request.Id);
+            FriendRequest result = _repo.GetByIdAsync(request.Id).Result;
             GetByIdFriendRequestQueryResponse getByIdFriendRequestQueryResponse = new GetByIdFriendRequestQueryResponse()
             {
                 Id=request.Id,

@@ -1,24 +1,26 @@
 ﻿using MediatR;
 using Microsoft.Extensions.Caching.Distributed;
 using SocialNetwork.Domain.Entities;
-using SocialNetwork.Persistence.Context;
 using SocialNetwork.Persistence.DAL.CQRS.Queries;
 using SocialNetwork.Persistence.DAL.CQRS.Queries.Request;
 using SocialNetwork.Persistence.DAL.CQRS.Queries.Response;
 using System.Text;
 using System.Text.Json;
+using RabbitMQ.Client;
+using SocialNetwork.Persistence.Repository;
+using SocialNetwork.Application.Interfaces.Repositories;
 
 namespace SocialNetwork.Persistence.DAL.CQRS.Handlers.QueryHandlers
 {
     public class GetAllMessageTypeQueryHandler : IRequestHandler<GetAllMessageTypeQueryRequest, PaginingResponse<List<GetAllMessageTypeQueryResponse>>>
     {
-        private readonly ApplicationDbContext _context;
+        private readonly IMessageTypeRepository _repo;
         private readonly IDistributedCache _distributedCache;
 
-        public GetAllMessageTypeQueryHandler(IDistributedCache distributedCache, ApplicationDbContext context)
+        public GetAllMessageTypeQueryHandler(IDistributedCache distributedCache, MessageTypeRepository repo)
         {
             _distributedCache = distributedCache;
-            _context = context;
+            _repo = repo;
         }
 
         public async Task<PaginingResponse<List<GetAllMessageTypeQueryResponse>>> Handle(GetAllMessageTypeQueryRequest request, CancellationToken cancellationToken)
@@ -31,7 +33,7 @@ namespace SocialNetwork.Persistence.DAL.CQRS.Handlers.QueryHandlers
 
             if (cachedBytes == null)
             {
-                context = _context.MessageTypes.ToList();
+                context = await _repo.GetAsync();
 
                 string jsonText = JsonSerializer.Serialize(context);
                 _distributedCache.SetAsync("messageTypes", Encoding.UTF8.GetBytes(jsonText));
@@ -57,7 +59,7 @@ namespace SocialNetwork.Persistence.DAL.CQRS.Handlers.QueryHandlers
             //gelen sayfa ve limit değerleri kontrol edilecek.
             getAllMessageTypeQueryResponse.Limit = request.Limit;
             getAllMessageTypeQueryResponse.Page = request.Page;
-            getAllMessageTypeQueryResponse.Total = _context.MessageTypes.Count();
+            getAllMessageTypeQueryResponse.Total = _repo.GetAsync().Result.Count();
             getAllMessageTypeQueryResponse.TotalPage = (int)Math.Ceiling(getAllMessageTypeQueryResponse.Total / (double)getAllMessageTypeQueryResponse.Limit);
             getAllMessageTypeQueryResponse.HasPrevious = getAllMessageTypeQueryResponse.Page != 1;
             getAllMessageTypeQueryResponse.HasNext = getAllMessageTypeQueryResponse.Page != getAllMessageTypeQueryResponse.TotalPage;

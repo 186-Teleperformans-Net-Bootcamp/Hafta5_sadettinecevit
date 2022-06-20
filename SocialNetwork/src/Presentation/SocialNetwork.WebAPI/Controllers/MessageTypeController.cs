@@ -89,7 +89,7 @@ namespace SocialNetwork.WebAPI.Controllers
         [HttpPut("UpdateMessageType")]
         public async Task<IActionResult> Update(MessageType messageType)
         {
-            MessageType result = await _messageTypeRepository.Update(messageType);
+            MessageType result = _messageTypeRepository.Update(messageType).Result.Entity;
 
             IActionResult retVal = null;
             if (result != null)

@@ -1,23 +1,25 @@
 ﻿using MediatR;
+using SocialNetwork.Application.Interfaces.Repositories;
 using SocialNetwork.Domain.Entities;
 using SocialNetwork.Persistence.Context;
 using SocialNetwork.Persistence.DAL.CQRS.Queries.Request;
 using SocialNetwork.Persistence.DAL.CQRS.Queries.Response;
+using SocialNetwork.Persistence.Repository;
 
 namespace SocialNetwork.Persistence.DAL.CQRS.Handlers.QueryHandlers
 {
     public class GetByIdMessageQueryHandler : IRequestHandler<GetByIdMessageQueryRequest, GetByIdMessageQueryResponse>
     {
-        private readonly ApplicationDbContext _context;
+        private readonly IMessageRepository _repo;
 
-        public GetByIdMessageQueryHandler(ApplicationDbContext context)
+        public GetByIdMessageQueryHandler(MessageRepository repo)
         {
-            _context = context;
+            _repo = repo;
         }
 
         public async Task<GetByIdMessageQueryResponse> Handle(GetByIdMessageQueryRequest request, CancellationToken cancellationToken)
         {
-            Message result = _context.Messages.FirstOrDefault(c => c.Id == request.Id);
+            Message result = _repo.GetByIdAsync(request.Id).Result;
             GetByIdMessageQueryResponse getByIdMessageQueryResponse = new GetByIdMessageQueryResponse()
             {
                 Id = result.Id,

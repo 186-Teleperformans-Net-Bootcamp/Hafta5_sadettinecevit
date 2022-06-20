@@ -88,7 +88,7 @@ namespace SocialNetwork.WebAPI.Controllers
         [HttpPut("UpdateGroupMember")]
         public async Task<IActionResult> Update(GroupMember groupMember)
         {
-            GroupMember result = await _groupMemberRepository.Update(groupMember);
+            GroupMember result = _groupMemberRepository.Update(groupMember).Result.Entity;
 
             IActionResult retVal = null;
             if (result != null)

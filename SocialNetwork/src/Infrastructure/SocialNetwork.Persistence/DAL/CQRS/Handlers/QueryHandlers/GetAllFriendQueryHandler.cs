@@ -1,10 +1,12 @@
 ﻿using MediatR;
 using Microsoft.Extensions.Caching.Distributed;
+using SocialNetwork.Application.Interfaces.Repositories;
 using SocialNetwork.Domain.Entities;
 using SocialNetwork.Persistence.Context;
 using SocialNetwork.Persistence.DAL.CQRS.Queries;
 using SocialNetwork.Persistence.DAL.CQRS.Queries.Request;
 using SocialNetwork.Persistence.DAL.CQRS.Queries.Response;
+using SocialNetwork.Persistence.Repository;
 using System.Text;
 using System.Text.Json;
 
@@ -12,12 +14,12 @@ namespace SocialNetwork.Persistence.DAL.CQRS.Handlers.QueryHandlers
 {
     public class GetAllFriendQueryHandler : IRequestHandler<GetAllFriendQueryRequest, PaginingResponse<List<GetAllFriendQueryResponse>>>
     {
-        private readonly ApplicationDbContext _context;
+        private readonly IFriendRepository _repo;
         private readonly IDistributedCache _distributedCache;
-        public GetAllFriendQueryHandler(IDistributedCache distributedCache, ApplicationDbContext context)
+        public GetAllFriendQueryHandler(IDistributedCache distributedCache, FriendRepository repo)
         {
             _distributedCache = distributedCache;
-            _context = context;
+            _repo = repo;
         }
 
         public async Task<PaginingResponse<List<GetAllFriendQueryResponse>>> Handle(GetAllFriendQueryRequest request, CancellationToken cancellationToken)
@@ -30,7 +32,7 @@ namespace SocialNetwork.Persistence.DAL.CQRS.Handlers.QueryHandlers
 
             if (cachedBytes == null)
             {
-                context = _context.Friends.ToList();
+                context = _repo.GetAsync().Result;
 
                 string jsonText = JsonSerializer.Serialize(context);
                 _distributedCache.SetAsync("friends", Encoding.UTF8.GetBytes(jsonText));

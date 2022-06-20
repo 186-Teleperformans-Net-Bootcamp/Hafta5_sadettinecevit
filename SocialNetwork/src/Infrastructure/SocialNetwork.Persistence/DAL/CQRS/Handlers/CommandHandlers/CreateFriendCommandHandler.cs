@@ -1,28 +1,30 @@
 ﻿using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Distributed;
+using SocialNetwork.Application.Interfaces.Repositories;
 using SocialNetwork.Domain.Entities;
 using SocialNetwork.Persistence.Context;
 using SocialNetwork.Persistence.DAL.CQRS.Commands.Request;
 using SocialNetwork.Persistence.DAL.CQRS.Commands.Response;
+using SocialNetwork.Persistence.Repository;
 
 namespace SocialNetwork.Persistence.DAL.CQRS.Handlers.CommandHandlers
 {
     public class CreateFriendCommandHandler : IRequestHandler<CreateFriendCommandRequest, CreateFriendCommandResponse>
     {
-        private readonly ApplicationDbContext _context;
+        private readonly IFriendRepository _repo;
         private readonly IDistributedCache _distributedCache;
-        public CreateFriendCommandHandler(IDistributedCache distributedCache, ApplicationDbContext context)
+        public CreateFriendCommandHandler(IDistributedCache distributedCache, FriendRepository repo)
         {
             _distributedCache = distributedCache;
-            _context = context;
+            _repo = repo;
         }
 
         public async Task<CreateFriendCommandResponse> Handle(CreateFriendCommandRequest createFriendCommandRequest, CancellationToken cancellationToken)
         {
             CreateFriendCommandResponse createFriendCommandResponse = new CreateFriendCommandResponse();
 
-            var result = _context.Friends.Add(
+            var result = await _repo.Add(
                 new Friend
                 {
                     FriendUser = createFriendCommandRequest.FriendUser,
@@ -35,7 +37,7 @@ namespace SocialNetwork.Persistence.DAL.CQRS.Handlers.CommandHandlers
 
             if(createFriendCommandResponse.IsSuccess)
             {
-                _distributedCache.RemoveAsync("friends");
+                await _distributedCache.RemoveAsync("friends");
             }
 
             return createFriendCommandResponse;

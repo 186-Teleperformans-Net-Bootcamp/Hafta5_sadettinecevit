@@ -10,13 +10,12 @@ namespace SocialNetwork.Persistence.DAL.CQRS.Handlers.CommandHandlers
 {
     public class DeleteUserCommandHandler : IRequestHandler<DeleteUserCommandRequest, DeleteUserCommandResponse>
     {
-        private readonly ApplicationDbContext _context;
         private readonly UserManager<User> _userManager;
         private readonly IDistributedCache _distributedCache;
-        public DeleteUserCommandHandler(ApplicationDbContext context, UserManager<User> userManager)
+        public DeleteUserCommandHandler(UserManager<User> userManager, IDistributedCache distributedCache)
         {
-            _context = context;
             _userManager = userManager;
+            _distributedCache = distributedCache;
         }
 
         public async Task<DeleteUserCommandResponse> Handle(DeleteUserCommandRequest deleteUserCommandRequest, CancellationToken cancellationToken)
@@ -31,7 +30,7 @@ namespace SocialNetwork.Persistence.DAL.CQRS.Handlers.CommandHandlers
 
             if (deleteUserCommandResponse.IsSuccess)
             {
-                _distributedCache.RemoveAsync("comments");
+                await _distributedCache.RemoveAsync("comments");
             }
 
             return deleteUserCommandResponse;

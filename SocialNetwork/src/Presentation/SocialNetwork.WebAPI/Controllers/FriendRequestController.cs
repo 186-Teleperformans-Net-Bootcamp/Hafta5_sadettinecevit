@@ -95,26 +95,26 @@ namespace SocialNetwork.WebAPI.Controllers
 
             if (friendRequest.Response)
             {
-                addResult = await _friendRepository.Add(
+                addResult = _friendRepository.Add(
                     new Friend
                     {
                         FriendUser = friendRequest.FromUser,
                         User = friendRequest.ToUser,
                         TimeToBeFriend = friendRequest.ResponseTime
-                    });
+                    }).Result.Entity;
 
-                addResult = await _friendRepository.Add(
+                addResult = _friendRepository.Add(
                     new Friend
                     {
                         FriendUser = friendRequest.ToUser,
                         User = friendRequest.FromUser,
                         TimeToBeFriend = friendRequest.ResponseTime
-                    });
+                    }).Result.Entity;
             }
 
             if (addResult != null)
             {
-                result = await _friendRequestRepository.Delete(friendRequest);
+                result = _friendRequestRepository.Delete(friendRequest).Result.Entity;
             }
             if (result != null)
             {

@@ -1,10 +1,12 @@
 ﻿using MediatR;
 using Microsoft.Extensions.Caching.Distributed;
+using SocialNetwork.Application.Interfaces.Repositories;
 using SocialNetwork.Domain.Entities;
 using SocialNetwork.Persistence.Context;
 using SocialNetwork.Persistence.DAL.CQRS.Queries;
 using SocialNetwork.Persistence.DAL.CQRS.Queries.Request;
 using SocialNetwork.Persistence.DAL.CQRS.Queries.Response;
+using SocialNetwork.Persistence.Repository;
 using System.Text;
 using System.Text.Json;
 
@@ -12,12 +14,12 @@ namespace SocialNetwork.Persistence.DAL.CQRS.Handlers.QueryHandlers
 {
     public class GetAllFriendRequestQueryHandler : IRequestHandler<GetAllFriendRequestQueryRequest, PaginingResponse<List<GetAllFriendRequestQueryResponse>>>
     {
-        private readonly ApplicationDbContext _context;
+        private readonly IFriendRequestRepository _repo;
         private readonly IDistributedCache _distributedCache;
-        public GetAllFriendRequestQueryHandler(IDistributedCache distributedCache, ApplicationDbContext context)
+        public GetAllFriendRequestQueryHandler(IDistributedCache distributedCache, FriendRequestRepository repo)
         {
             _distributedCache = distributedCache;
-            _context = context;
+            _repo = repo;
         }
 
         public async Task<PaginingResponse<List<GetAllFriendRequestQueryResponse>>> Handle(GetAllFriendRequestQueryRequest request, CancellationToken cancellationToken)
@@ -30,7 +32,7 @@ namespace SocialNetwork.Persistence.DAL.CQRS.Handlers.QueryHandlers
 
             if (cachedBytes == null)
             {
-                context = _context.FriendRequests.ToList();
+                context = _repo.GetAsync().Result;
 
                 string jsonText = JsonSerializer.Serialize(context);
                 _distributedCache.SetAsync("friendRequest", Encoding.UTF8.GetBytes(jsonText));
@@ -58,7 +60,6 @@ namespace SocialNetwork.Persistence.DAL.CQRS.Handlers.QueryHandlers
             //gelen sayfa ve limit değerleri kontrol edilecek.
             getAllFriendRequestQueryResponse.Limit = request.Limit;
             getAllFriendRequestQueryResponse.Page = request.Page;
-            getAllFriendRequestQueryResponse.Total = _context.FriendRequests.Count();
             getAllFriendRequestQueryResponse.TotalPage = (int)Math.Ceiling(getAllFriendRequestQueryResponse.Total / (double)getAllFriendRequestQueryResponse.Limit);
             getAllFriendRequestQueryResponse.HasPrevious = getAllFriendRequestQueryResponse.Page != 1;
             getAllFriendRequestQueryResponse.HasNext = getAllFriendRequestQueryResponse.Page != getAllFriendRequestQueryResponse.TotalPage;

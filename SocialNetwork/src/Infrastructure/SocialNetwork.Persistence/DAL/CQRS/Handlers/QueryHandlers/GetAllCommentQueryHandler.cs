@@ -1,10 +1,12 @@
 ﻿using MediatR;
 using Microsoft.Extensions.Caching.Distributed;
+using SocialNetwork.Application.Interfaces.Repositories;
 using SocialNetwork.Domain.Entities;
 using SocialNetwork.Persistence.Context;
 using SocialNetwork.Persistence.DAL.CQRS.Queries;
 using SocialNetwork.Persistence.DAL.CQRS.Queries.Request;
 using SocialNetwork.Persistence.DAL.CQRS.Queries.Response;
+using SocialNetwork.Persistence.Repository;
 using System.Text;
 using System.Text.Json;
 
@@ -12,12 +14,12 @@ namespace SocialNetwork.Persistence.DAL.CQRS.Handlers.QueryHandlers
 {
     public class GetAllCommentQueryHandler : IRequestHandler<GetAllCommentQueryRequest, PaginingResponse<List<GetAllCommentQueryResponse>>>
     {
-        private readonly ApplicationDbContext _context;
+        private readonly ICommentRepository _repo;
         private readonly IDistributedCache _distributedCache;
 
-        public GetAllCommentQueryHandler(ApplicationDbContext context, IDistributedCache distributedCache)
+        public GetAllCommentQueryHandler(CommentRepository repo, IDistributedCache distributedCache)
         {
-            _context = context;
+            _repo = repo;
             _distributedCache = distributedCache;
         }
 
@@ -31,7 +33,7 @@ namespace SocialNetwork.Persistence.DAL.CQRS.Handlers.QueryHandlers
 
             if(cachedBytes == null)
             {
-                context = _context.Comments.ToList();
+                context = _repo.GetAsync().Result;
 
                 string jsonText = JsonSerializer.Serialize(context);
                 _distributedCache.SetAsync("comments", Encoding.UTF8.GetBytes(jsonText));

@@ -1,20 +1,22 @@
 ﻿using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.Extensions.Caching.Distributed;
+using SocialNetwork.Application.Interfaces.Repositories;
 using SocialNetwork.Domain.Entities;
-using SocialNetwork.Persistence.Context;
 using SocialNetwork.Persistence.DAL.CQRS.Commands.Request;
 using SocialNetwork.Persistence.DAL.CQRS.Commands.Response;
+using SocialNetwork.Persistence.Repository;
 
 namespace SocialNetwork.Persistence.DAL.CQRS.Handlers.CommandHandlers
 {
     public class DeleteFriendRequestCommandHandler : IRequestHandler<DeleteFriendRequestCommandRequest, DeleteFriendRequestCommandResponse>
     {
-        private readonly ApplicationDbContext _context;
+        private readonly IFriendRequestRepository _repo;
         private readonly IDistributedCache _distributedCache;
-        public DeleteFriendRequestCommandHandler(IDistributedCache distributedCache, ApplicationDbContext context)
+        public DeleteFriendRequestCommandHandler(IDistributedCache distributedCache, FriendRequestRepository repo)
         {
-            _context = context;
+            _repo = repo;
             _distributedCache = distributedCache;
         }
 
@@ -22,13 +24,13 @@ namespace SocialNetwork.Persistence.DAL.CQRS.Handlers.CommandHandlers
         {
             DeleteFriendRequestCommandResponse deleteFriendRequestCommandResponse = new DeleteFriendRequestCommandResponse();
 
-            FriendRequest friendRequest = _context.FriendRequests.FirstOrDefault<FriendRequest>(f => f.Id == deleteFriendRequestCommandRequest.Id);
-            EntityState result = _context.FriendRequests.Remove(friendRequest).State;
-            deleteFriendRequestCommandResponse.IsSuccess = result == EntityState.Deleted;
+            FriendRequest friendRequest = _repo.GetAsync().Result.FirstOrDefault<FriendRequest>(f => f.Id == deleteFriendRequestCommandRequest.Id);
+            EntityEntry<FriendRequest> result = _repo.Delete(friendRequest).Result;
+            deleteFriendRequestCommandResponse.IsSuccess = result.State == EntityState.Deleted;
 
             if(deleteFriendRequestCommandResponse.IsSuccess)
             {
-                _distributedCache.RemoveAsync("friendRequests");
+                await _distributedCache.RemoveAsync("friendRequests");
             }
 
             return deleteFriendRequestCommandResponse;

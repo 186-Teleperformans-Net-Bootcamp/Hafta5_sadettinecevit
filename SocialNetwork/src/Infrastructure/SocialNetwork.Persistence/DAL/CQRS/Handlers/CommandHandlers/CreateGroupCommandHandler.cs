@@ -1,27 +1,30 @@
 ﻿using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Distributed;
+using SocialNetwork.Application.Interfaces.Repositories;
 using SocialNetwork.Domain.Entities;
 using SocialNetwork.Persistence.Context;
 using SocialNetwork.Persistence.DAL.CQRS.Commands.Request;
 using SocialNetwork.Persistence.DAL.CQRS.Commands.Response;
+using SocialNetwork.Persistence.Repository;
 
 namespace SocialNetwork.Persistence.DAL.CQRS.Handlers.CommandHandlers
 {
     public class CreateGroupCommandHandler : IRequestHandler<CreateGroupCommandRequest, CreateGroupCommandResponse>
     {
-        private readonly ApplicationDbContext _context;
+        private readonly IGroupRepository _repo;
         private readonly IDistributedCache _distributedCache;
-        public CreateGroupCommandHandler(ApplicationDbContext context)
+        public CreateGroupCommandHandler(IDistributedCache distributedCache, GroupRepository repo)
         {
-            _context = context;
+            _repo = repo;
+            _distributedCache = distributedCache;
         }
 
         public async Task<CreateGroupCommandResponse> Handle(CreateGroupCommandRequest createGroupCommandRequest, CancellationToken cancellationToken)
         {
             CreateGroupCommandResponse createGroupCommandResponse = new CreateGroupCommandResponse();
 
-            var result = _context.Groups.Add(
+            var result = await _repo.Add(
                 new Group
                 {
                     Name = createGroupCommandRequest.Name
@@ -32,7 +35,7 @@ namespace SocialNetwork.Persistence.DAL.CQRS.Handlers.CommandHandlers
 
             if(createGroupCommandResponse.IsSuccess)
             {
-                _distributedCache.RemoveAsync("group");
+                await _distributedCache.RemoveAsync("group");
             }
 
             return createGroupCommandResponse;

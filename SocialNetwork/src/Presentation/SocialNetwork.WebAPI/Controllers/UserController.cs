@@ -129,7 +129,7 @@ namespace SocialNetwork.WebAPI.Controllers
         [HttpPut("UpdateUser")]
         public async Task<IActionResult> Update([FromBody] User user)
         {
-            User result = await _userRepository.Update(user);
+            User result = _userRepository.Update(user).Result.Entity;
 
             IActionResult retVal = null;
             if (result != null)

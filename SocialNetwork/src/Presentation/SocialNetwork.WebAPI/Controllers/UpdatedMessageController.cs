@@ -80,7 +80,7 @@ namespace SocialNetwork.WebAPI.Controllers
         [HttpPut("UpdateUpdatedMessage")]
         public async Task<IActionResult> Update(UpdatedMessage updatedMessage)
         {
-            UpdatedMessage result = await _updatedMessageRepository.Update(updatedMessage);
+            UpdatedMessage result = _updatedMessageRepository.Update(updatedMessage).Result.Entity;
 
             IActionResult retVal = null;
             if (result != null)

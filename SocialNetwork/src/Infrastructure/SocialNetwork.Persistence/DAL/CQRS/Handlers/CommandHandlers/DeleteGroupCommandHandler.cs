@@ -1,20 +1,22 @@
 ﻿using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.Extensions.Caching.Distributed;
+using SocialNetwork.Application.Interfaces.Repositories;
 using SocialNetwork.Domain.Entities;
-using SocialNetwork.Persistence.Context;
 using SocialNetwork.Persistence.DAL.CQRS.Commands.Request;
 using SocialNetwork.Persistence.DAL.CQRS.Commands.Response;
+using SocialNetwork.Persistence.Repository;
 
 namespace SocialNetwork.Persistence.DAL.CQRS.Handlers.CommandHandlers
 {
     public class DeleteGroupCommandHandler : IRequestHandler<DeleteGroupCommandRequest, DeleteGroupCommandResponse>
     {
-        private readonly ApplicationDbContext _context;
+        private readonly IGroupRepository _repo;
         private readonly IDistributedCache _distributedCache;
-        public DeleteGroupCommandHandler(IDistributedCache distributedCache, ApplicationDbContext context)
+        public DeleteGroupCommandHandler(IDistributedCache distributedCache, GroupRepository repo)
         {
-            _context = context;
+            _repo = repo;
             _distributedCache = distributedCache;
         }
 
@@ -22,13 +24,13 @@ namespace SocialNetwork.Persistence.DAL.CQRS.Handlers.CommandHandlers
         {
             DeleteGroupCommandResponse deleteGroupCommandResponse = new DeleteGroupCommandResponse();
 
-            Group group = _context.Groups.FirstOrDefault<Group>(g => g.Id == deleteGroupCommandRequest.Id);
-            EntityState result = _context.Groups.Remove(group).State;
-            deleteGroupCommandResponse.IsSuccess = result == EntityState.Deleted;
+            Group group = _repo.GetAsync().Result.FirstOrDefault<Group>(g => g.Id == deleteGroupCommandRequest.Id);
+            EntityEntry<Group> result = _repo.Delete(group).Result;
+            deleteGroupCommandResponse.IsSuccess = result.State == EntityState.Deleted;
 
             if(deleteGroupCommandResponse.IsSuccess)
             {
-                _distributedCache.RemoveAsync("groups");
+                await _distributedCache.RemoveAsync("groups");
             }
 
             return deleteGroupCommandResponse;

@@ -1,18 +1,14 @@
-﻿using SocialNetwork.Domain.Common;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using Microsoft.EntityFrameworkCore.ChangeTracking;
+using SocialNetwork.Domain.Common;
 
 namespace SocialNetwork.Application.Interfaces.Repositories
 {
-    public interface IRepository<T> where T : IBaseEntity, new()
+    public interface IRepository<T> where T : class, IBaseEntity, new()
     {
         Task<List<T>> GetAsync();
         Task<T> GetByIdAsync(string id);
-        Task<T> Add(T entity);
-        Task<T> Update(T entity);
-        Task<T> Delete(T entity);
+        Task<EntityEntry<T>> Add(T entity);
+        Task<EntityEntry<T>> Update(T entity);
+        Task<EntityEntry<T>> Delete(T entity);
     }
 }

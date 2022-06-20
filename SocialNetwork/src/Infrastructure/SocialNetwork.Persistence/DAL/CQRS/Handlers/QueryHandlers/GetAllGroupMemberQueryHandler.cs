@@ -1,10 +1,12 @@
 ﻿using MediatR;
 using Microsoft.Extensions.Caching.Distributed;
+using SocialNetwork.Application.Interfaces.Repositories;
 using SocialNetwork.Domain.Entities;
 using SocialNetwork.Persistence.Context;
 using SocialNetwork.Persistence.DAL.CQRS.Queries;
 using SocialNetwork.Persistence.DAL.CQRS.Queries.Request;
 using SocialNetwork.Persistence.DAL.CQRS.Queries.Response;
+using SocialNetwork.Persistence.Repository;
 using System.Text;
 using System.Text.Json;
 
@@ -12,12 +14,12 @@ namespace SocialNetwork.Persistence.DAL.CQRS.Handlers.QueryHandlers
 {
     public class GetAllGroupMemberQueryHandler : IRequestHandler<GetAllGroupMemberQueryRequest, PaginingResponse<List<GetAllGroupMemberQueryResponse>>>
     {
-        private readonly ApplicationDbContext _context;
+        private readonly IGroupMemberRepository _repo;
         private readonly IDistributedCache _distributedCache;
-        public GetAllGroupMemberQueryHandler(IDistributedCache distributedCache, ApplicationDbContext context)
+        public GetAllGroupMemberQueryHandler(IDistributedCache distributedCache, GroupMemberRepository repo)
         {
             _distributedCache = distributedCache;
-            _context = context;
+            _repo = repo;
         }
 
         public async Task<PaginingResponse<List<GetAllGroupMemberQueryResponse>>> Handle(GetAllGroupMemberQueryRequest request, CancellationToken cancellationToken)
@@ -30,7 +32,7 @@ namespace SocialNetwork.Persistence.DAL.CQRS.Handlers.QueryHandlers
 
             if (cachedBytes == null)
             {
-                context = _context.GroupMembers.ToList();
+                context = _repo.GetAsync().Result;
 
                 string jsonText = JsonSerializer.Serialize(context);
                 _distributedCache.SetAsync("groupMembers", Encoding.UTF8.GetBytes(jsonText));
@@ -55,7 +57,6 @@ namespace SocialNetwork.Persistence.DAL.CQRS.Handlers.QueryHandlers
             //gelen sayfa ve limit değerleri kontrol edilecek.
             getAllGroupMemberQueryResponse.Limit = request.Limit;
             getAllGroupMemberQueryResponse.Page = request.Page;
-            getAllGroupMemberQueryResponse.Total = _context.GroupMembers.Count();
             getAllGroupMemberQueryResponse.TotalPage = (int)Math.Ceiling(getAllGroupMemberQueryResponse.Total / (double)getAllGroupMemberQueryResponse.Limit);
             getAllGroupMemberQueryResponse.HasPrevious = getAllGroupMemberQueryResponse.Page != 1;
             getAllGroupMemberQueryResponse.HasNext = getAllGroupMemberQueryResponse.Page != getAllGroupMemberQueryResponse.TotalPage;

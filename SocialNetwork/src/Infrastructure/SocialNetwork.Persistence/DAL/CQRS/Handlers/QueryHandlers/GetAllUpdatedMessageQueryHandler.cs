@@ -1,10 +1,12 @@
 ﻿using MediatR;
 using Microsoft.Extensions.Caching.Distributed;
+using SocialNetwork.Application.Interfaces.Repositories;
 using SocialNetwork.Domain.Entities;
 using SocialNetwork.Persistence.Context;
 using SocialNetwork.Persistence.DAL.CQRS.Queries;
 using SocialNetwork.Persistence.DAL.CQRS.Queries.Request;
 using SocialNetwork.Persistence.DAL.CQRS.Queries.Response;
+using SocialNetwork.Persistence.Repository;
 using System.Text;
 using System.Text.Json;
 
@@ -12,12 +14,12 @@ namespace SocialNetwork.Persistence.DAL.CQRS.Handlers.QueryHandlers
 {
     public class GetAllUpdatedMessageQueryHandler : IRequestHandler<GetAllUpdatedMessageQueryRequest, PaginingResponse<List<GetAllUpdatedMessageQueryResponse>>>
     {
-        private readonly ApplicationDbContext _context;
+        private readonly IUpdatedMessageRepository _repo;
         private readonly IDistributedCache _distributedCache;
 
-        public GetAllUpdatedMessageQueryHandler(ApplicationDbContext context, IDistributedCache distributedCache)
+        public GetAllUpdatedMessageQueryHandler(UpdatedMessageRepository repo, IDistributedCache distributedCache)
         {
-            _context = context;
+            _repo = repo;
             _distributedCache = distributedCache;
         }
 
@@ -31,7 +33,7 @@ namespace SocialNetwork.Persistence.DAL.CQRS.Handlers.QueryHandlers
 
             if (cachedBytes == null)
             {
-                context = _context.UpdatedMessages.ToList();
+                context = _repo.GetAsync().Result;
 
                 string jsonText = JsonSerializer.Serialize(context);
                 _distributedCache.SetAsync("updatedMessages", Encoding.UTF8.GetBytes(jsonText));

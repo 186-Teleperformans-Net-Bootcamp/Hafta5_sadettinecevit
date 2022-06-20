@@ -1,34 +1,36 @@
 ﻿using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.Extensions.Caching.Distributed;
+using SocialNetwork.Application.Interfaces.Repositories;
 using SocialNetwork.Domain.Entities;
-using SocialNetwork.Persistence.Context;
 using SocialNetwork.Persistence.DAL.CQRS.Commands.Request;
 using SocialNetwork.Persistence.DAL.CQRS.Commands.Response;
+using SocialNetwork.Persistence.Repository;
 
 namespace SocialNetwork.Persistence.DAL.CQRS.Handlers.CommandHandlers
 {
     public class DeleteUpdatedMessageCommandHandler : IRequestHandler<DeleteUpdatedMessageCommandRequest, DeleteUpdatedMessageCommandResponse>
     {
-        private readonly ApplicationDbContext _context;
+        private readonly IUpdatedMessageRepository _repo;
         private readonly IDistributedCache _distributedCache;
-        public DeleteUpdatedMessageCommandHandler(ApplicationDbContext context, IDistributedCache distributedCache)
+        public DeleteUpdatedMessageCommandHandler(UpdatedMessageRepository repo, IDistributedCache distributedCache)
         {
             _distributedCache = distributedCache;
-            _context = context;
+            _repo = repo;
         }
 
         public async Task<DeleteUpdatedMessageCommandResponse> Handle(DeleteUpdatedMessageCommandRequest deleteUpdateMessageCommandRequest, CancellationToken cancellationToken)
         {
             DeleteUpdatedMessageCommandResponse deleteUpdateMessageCommandResponse = new DeleteUpdatedMessageCommandResponse();
 
-            UpdatedMessage updatedMessage = _context.UpdatedMessages.FirstOrDefault<UpdatedMessage>(u => u.Id == deleteUpdateMessageCommandRequest.Id);
-            EntityState result = _context.UpdatedMessages.Remove(updatedMessage).State;
-            deleteUpdateMessageCommandResponse.IsSuccess = result == EntityState.Deleted;
+            UpdatedMessage updatedMessage = _repo.GetAsync().Result.FirstOrDefault<UpdatedMessage>(u => u.Id == deleteUpdateMessageCommandRequest.Id);
+            EntityEntry<UpdatedMessage> result = await _repo.Delete(updatedMessage);
+            deleteUpdateMessageCommandResponse.IsSuccess = result.State == EntityState.Deleted;
 
             if(deleteUpdateMessageCommandResponse.IsSuccess)
             {
-                _distributedCache.RemoveAsync("updatedMessages");
+                await _distributedCache.RemoveAsync("updatedMessages");
             }
 
             return deleteUpdateMessageCommandResponse;

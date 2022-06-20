@@ -83,7 +83,7 @@ namespace SocialNetwork.WebAPI.Controllers
         [HttpPut("UpdateComment")]
         public async Task<IActionResult> Update(Comment comment)
         {
-            Comment result = await _commentRepository.Update(comment);
+            Comment result = _commentRepository.Update(comment).Result.Entity;
 
             IActionResult retVal = null;
             if (result != null)

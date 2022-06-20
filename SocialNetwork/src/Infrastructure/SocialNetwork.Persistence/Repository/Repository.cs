@@ -1,4 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 using SocialNetwork.Application.Interfaces.Repositories;
 using SocialNetwork.Domain.Common;
 using SocialNetwork.Persistence.Context;
@@ -15,25 +16,25 @@ namespace SocialNetwork.Persistence.Repository
 
         private DbSet<T> Table { get => _context.Set<T>(); }
 
-        public virtual async Task<T> Add(T entity)
+        public virtual async Task<EntityEntry<T>> Add(T entity)
         {
-            await Table.AddAsync(entity);
-            await _context.SaveChangesAsync();
-            return entity;
+            EntityEntry<T> result = await Table.AddAsync(entity);
+            var retVal = await _context.SaveChangesAsync();
+            return result;
         }
 
-        public virtual async Task<T> Update(T entity)
+        public virtual async Task<EntityEntry<T>> Update(T entity)
         {
-            Table.Update(entity);
+            EntityEntry<T> result = Table.Update(entity);
             await _context.SaveChangesAsync();
-            return entity;
+            return result;
         }
 
-        public virtual async Task<T> Delete(T entity)
+        public virtual async Task<EntityEntry<T>> Delete(T entity)
         {
-            Table.Remove(entity);
+            EntityEntry<T> result = Table.Remove(entity);
             await _context.SaveChangesAsync();
-            return entity;
+            return result;
         }
 
         public async Task<List<T>> GetAsync() => await Table.ToListAsync();
