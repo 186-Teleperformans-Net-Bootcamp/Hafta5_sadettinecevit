@@ -1,5 +1,6 @@
 ﻿using MediatR;
 using SocialNetwork.Application.Interfaces.Repositories;
+using SocialNetwork.Application.Interfaces.UnitOfWork;
 using SocialNetwork.Domain.Entities;
 using SocialNetwork.Persistence.Context;
 using SocialNetwork.Persistence.DAL.CQRS.Queries.Request;
@@ -10,21 +11,24 @@ namespace SocialNetwork.Persistence.DAL.CQRS.Handlers.QueryHandlers
 {
     public class GetByIdMessageTypeQueryHandler : IRequestHandler<GetByIdMessageTypeQueryRequest, GetByIdMessageTypeQueryResponse>
     {
-        private readonly IMessageTypeRepository _repo;
+        private readonly IUnitOfWork _unitOfWork;
 
-        public GetByIdMessageTypeQueryHandler(MessageTypeRepository repo)
+        public GetByIdMessageTypeQueryHandler(IUnitOfWork unitOfWork)
         {
-            _repo = repo;
+            _unitOfWork = unitOfWork;
         }
 
         public async Task<GetByIdMessageTypeQueryResponse> Handle(GetByIdMessageTypeQueryRequest request, CancellationToken cancellationToken)
         {
-            MessageType result = _repo.GetByIdAsync(request.Id).Result;
+            MessageType result = _unitOfWork.MessageTypeRepository.GetByIdAsync(request.Id).Result;
             
             GetByIdMessageTypeQueryResponse getByIdMessageTypeQueryResponse = new GetByIdMessageTypeQueryResponse()
             {
-                Id = result.Id,
-                Type = result.Type
+                MessageTypeQueryResponse = new()
+                {
+                    Id = result.Id,
+                    Type = result.Type
+                }
             };
 
             return getByIdMessageTypeQueryResponse;

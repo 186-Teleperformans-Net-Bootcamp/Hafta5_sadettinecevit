@@ -1,8 +1,10 @@
 ﻿using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
+using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.Caching.Distributed;
 using SocialNetwork.Application.Interfaces.Repositories;
+using SocialNetwork.Application.Interfaces.UnitOfWork;
 using SocialNetwork.Domain.Entities;
 using SocialNetwork.Persistence.Context;
 using SocialNetwork.Persistence.DAL.CQRS.Commands.Request;
@@ -13,28 +15,38 @@ namespace SocialNetwork.Persistence.DAL.CQRS.Handlers.CommandHandlers
 {
     public class CreateMessageTypeCommandHandler : IRequestHandler<CreateMessageTypeCommandRequest, CreateMessageTypeCommandResponse>
     {
-        private readonly IMessageTypeRepository _repo;
+        private readonly IUnitOfWork _unitOfWork;
         private readonly IDistributedCache _distributedCache;
-        public CreateMessageTypeCommandHandler(IDistributedCache distributedCache, MessageTypeRepository repo)
+        public CreateMessageTypeCommandHandler(IDistributedCache distributedCache, IUnitOfWork unitOfWork)
         {
             _distributedCache = distributedCache;
-            _repo = repo;
+            _unitOfWork = unitOfWork;
         }
 
         public async Task<CreateMessageTypeCommandResponse> Handle(CreateMessageTypeCommandRequest createMessageTypeCommandRequest, CancellationToken cancellationToken)
         {
             CreateMessageTypeCommandResponse createMessageTypeCommandResponse = new CreateMessageTypeCommandResponse();
 
-            EntityEntry<MessageType> result = _repo.Add(
+            EntityEntry<MessageType> result = null;
+
+            using IDbContextTransaction retVal = await _unitOfWork.BeginTansactionAsync();
+
+            try
+            {
+                result = await _unitOfWork.MessageTypeRepository.Add(
                 new MessageType
                 {
                     Type = createMessageTypeCommandRequest.Type
-                }).Result;
+                });
+                createMessageTypeCommandResponse.IsSuccess = retVal.CommitAsync().IsCompletedSuccessfully;
+            }
+            catch (Exception ex)
+            {
+                await retVal.RollbackAsync();
+            }
+            createMessageTypeCommandResponse.MessageType = result?.Entity;
 
-            createMessageTypeCommandResponse.IsSuccess = result.State == EntityState.Added;
-            createMessageTypeCommandResponse.MessageType = result.Entity;
-
-            if(createMessageTypeCommandResponse.IsSuccess)
+            if (createMessageTypeCommandResponse.IsSuccess)
             {
                 await _distributedCache.RemoveAsync("messageTypes");
             }

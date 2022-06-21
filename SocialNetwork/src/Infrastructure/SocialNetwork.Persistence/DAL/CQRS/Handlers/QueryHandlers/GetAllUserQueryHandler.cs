@@ -1,6 +1,7 @@
 ﻿using MediatR;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Caching.Distributed;
+using SocialNetwork.Application.Dto;
 using SocialNetwork.Domain.Entities;
 using SocialNetwork.Persistence.Context;
 using SocialNetwork.Persistence.DAL.CQRS.Queries;
@@ -11,7 +12,7 @@ using System.Text.Json;
 
 namespace SocialNetwork.Persistence.DAL.CQRS.Handlers.QueryHandlers
 {
-    public class GetAllUserQueryHandler : IRequestHandler<GetAllUserQueryRequest, PaginingResponse<List<GetAllUserQueryResponse>>>
+    public class GetAllUserQueryHandler : IRequestHandler<GetAllUserQueryRequest, GetAllUserQueryResponse>
     {
         private readonly UserManager<User> _userManager;
         private readonly IDistributedCache _distributedCache;
@@ -21,9 +22,9 @@ namespace SocialNetwork.Persistence.DAL.CQRS.Handlers.QueryHandlers
             _userManager = userManager;
         }
 
-        public async Task<PaginingResponse<List<GetAllUserQueryResponse>>> Handle(GetAllUserQueryRequest request, CancellationToken cancellationToken)
+        public async Task<GetAllUserQueryResponse> Handle(GetAllUserQueryRequest request, CancellationToken cancellationToken)
         {
-            PaginingResponse<List<GetAllUserQueryResponse>> getAllUserQueryResponse = new PaginingResponse<List<GetAllUserQueryResponse>>();
+            GetAllUserQueryResponse getAllUserQueryResponse = new GetAllUserQueryResponse();
 
             byte[] cachedBytes = _distributedCache.GetAsync("users").Result;
 
@@ -52,20 +53,13 @@ namespace SocialNetwork.Persistence.DAL.CQRS.Handlers.QueryHandlers
                 userManager = userManager.Where(x => x.Name == request.Name || x.LastName == request.LastName).ToList();
             }
 
-            getAllUserQueryResponse.Total = userManager.Count();
-            //gelen sayfa ve limit değerleri kontrol edilecek.
-            getAllUserQueryResponse.Limit = request.Limit;
-            getAllUserQueryResponse.Page = request.Page;
-            getAllUserQueryResponse.Total = _userManager.Users.Count();
-            getAllUserQueryResponse.TotalPage = (int)Math.Ceiling(getAllUserQueryResponse.Total / (double)getAllUserQueryResponse.Limit);
-            getAllUserQueryResponse.HasPrevious = getAllUserQueryResponse.Page != 1;
-            getAllUserQueryResponse.HasNext = getAllUserQueryResponse.Page != getAllUserQueryResponse.TotalPage;
+            getAllUserQueryResponse.MaxPage = (int)Math.Ceiling(userManager.Count() / (double)request.Limit);
 
-            int skip = (getAllUserQueryResponse.Page - 1) * getAllUserQueryResponse.Limit;
-            int take = getAllUserQueryResponse.Limit;
+            int skip = (request.Page - 1) * request.Limit;
+            int take = request.Limit;
 
-            getAllUserQueryResponse.Response = userManager.Select(u =>
-            new GetAllUserQueryResponse
+            getAllUserQueryResponse.ListUserQueryResponse = userManager.Select(u =>
+            new UserQueryResponseDTO
             {
                 Id = u.Id,
                 UserName = u.UserName,

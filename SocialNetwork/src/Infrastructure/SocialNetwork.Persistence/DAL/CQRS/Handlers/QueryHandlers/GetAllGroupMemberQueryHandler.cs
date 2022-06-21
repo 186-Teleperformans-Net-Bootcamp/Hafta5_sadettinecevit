@@ -1,6 +1,8 @@
 ﻿using MediatR;
 using Microsoft.Extensions.Caching.Distributed;
+using SocialNetwork.Application.Dto;
 using SocialNetwork.Application.Interfaces.Repositories;
+using SocialNetwork.Application.Interfaces.UnitOfWork;
 using SocialNetwork.Domain.Entities;
 using SocialNetwork.Persistence.Context;
 using SocialNetwork.Persistence.DAL.CQRS.Queries;
@@ -12,19 +14,19 @@ using System.Text.Json;
 
 namespace SocialNetwork.Persistence.DAL.CQRS.Handlers.QueryHandlers
 {
-    public class GetAllGroupMemberQueryHandler : IRequestHandler<GetAllGroupMemberQueryRequest, PaginingResponse<List<GetAllGroupMemberQueryResponse>>>
+    public class GetAllGroupMemberQueryHandler : IRequestHandler<GetAllGroupMemberQueryRequest, GetAllGroupMemberQueryResponse>
     {
-        private readonly IGroupMemberRepository _repo;
+        private readonly IUnitOfWork _unitOfWork;
         private readonly IDistributedCache _distributedCache;
-        public GetAllGroupMemberQueryHandler(IDistributedCache distributedCache, GroupMemberRepository repo)
+        public GetAllGroupMemberQueryHandler(IDistributedCache distributedCache, IUnitOfWork unitOfWork)
         {
             _distributedCache = distributedCache;
-            _repo = repo;
+            _unitOfWork = unitOfWork;
         }
 
-        public async Task<PaginingResponse<List<GetAllGroupMemberQueryResponse>>> Handle(GetAllGroupMemberQueryRequest request, CancellationToken cancellationToken)
+        public async Task<GetAllGroupMemberQueryResponse> Handle(GetAllGroupMemberQueryRequest request, CancellationToken cancellationToken)
         {
-            PaginingResponse<List<GetAllGroupMemberQueryResponse>> getAllGroupMemberQueryResponse = new PaginingResponse<List<GetAllGroupMemberQueryResponse>>();
+            GetAllGroupMemberQueryResponse getAllGroupMemberQueryResponse = new GetAllGroupMemberQueryResponse();
 
             byte[] cachedBytes = _distributedCache.GetAsync("groupMembers").Result;
 
@@ -32,7 +34,7 @@ namespace SocialNetwork.Persistence.DAL.CQRS.Handlers.QueryHandlers
 
             if (cachedBytes == null)
             {
-                context = _repo.GetAsync().Result;
+                context = _unitOfWork.GroupMemberRepository.GetAsync().Result;
 
                 string jsonText = JsonSerializer.Serialize(context);
                 _distributedCache.SetAsync("groupMembers", Encoding.UTF8.GetBytes(jsonText));
@@ -53,19 +55,13 @@ namespace SocialNetwork.Persistence.DAL.CQRS.Handlers.QueryHandlers
                 context = context.Where(x => x.User.UserName == request.UserName || x.Group.Name == request.GroupName).ToList();
             }
 
-            getAllGroupMemberQueryResponse.Total = context.Count();
-            //gelen sayfa ve limit değerleri kontrol edilecek.
-            getAllGroupMemberQueryResponse.Limit = request.Limit;
-            getAllGroupMemberQueryResponse.Page = request.Page;
-            getAllGroupMemberQueryResponse.TotalPage = (int)Math.Ceiling(getAllGroupMemberQueryResponse.Total / (double)getAllGroupMemberQueryResponse.Limit);
-            getAllGroupMemberQueryResponse.HasPrevious = getAllGroupMemberQueryResponse.Page != 1;
-            getAllGroupMemberQueryResponse.HasNext = getAllGroupMemberQueryResponse.Page != getAllGroupMemberQueryResponse.TotalPage;
+            getAllGroupMemberQueryResponse.MaxPage = (int)Math.Ceiling(context.Count() / (double)request.Limit);
 
-            int skip = (getAllGroupMemberQueryResponse.Page - 1) * getAllGroupMemberQueryResponse.Limit;
-            int take = getAllGroupMemberQueryResponse.Limit;
+            int skip = (request.Page - 1) * request.Limit;
+            int take = request.Limit;
 
-            getAllGroupMemberQueryResponse.Response = context.Select(g =>
-            new GetAllGroupMemberQueryResponse
+            getAllGroupMemberQueryResponse.ListGroupMemberQueryResponse = context.Select(g =>
+            new GroupMemberQueryResponseDTO
             {
                 Id = g.Id,
                 User = g.User,

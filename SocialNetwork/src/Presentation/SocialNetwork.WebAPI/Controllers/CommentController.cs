@@ -15,32 +15,36 @@ namespace SocialNetwork.WebAPI.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [Authorize]
+    //    [Authorize]
     public class CommentController : ControllerBase
     {
-        private readonly ICommentRepository _commentRepository;
+        //private readonly ICommentRepository _commentRepository;
         private readonly IMediator _mediator;
-        public CommentController(ICommentRepository commentRepository, IMediator mediator) =>
-            (_commentRepository, _mediator) = (commentRepository, mediator);
+        public CommentController(IMediator mediator)
+        {
+            //_commentRepository = commentRepository;
+            _mediator = mediator;
+
+        }
 
         [HttpGet("GetAllComment")]
         public async Task<IActionResult> GetAll([FromQuery] GetAllCommentQueryRequest request)
         {
             IActionResult retVal = null;
-            PaginingResponse<List<GetAllCommentQueryResponse>> result = await _mediator.Send(request);
+            //PaginingResponse<List<GetAllCommentQueryResponse>> result = await _mediator.Send(request);
+            var result = await _mediator.Send(request);
 
             Response.Headers.Add("x-Pagination", JsonSerializer.Serialize(
                 new
                 {
-                    result.Total,
-                    result.TotalPage,
-                    result.Page,
-                    result.Limit,
-                    result.HasPrevious,
-                    result.HasNext
+                    result.MaxPage,
+                    request.Page,
+                    request.Limit,
+                    HasPrevious = request.Page != 1,
+                    HasNext = request.Page < result.MaxPage
                 }));
 
-            retVal = Ok(result.Response);
+            retVal = Ok(result.ListCommentQueryResponse);
             return retVal;
         }
 
@@ -83,7 +87,7 @@ namespace SocialNetwork.WebAPI.Controllers
         [HttpPut("UpdateComment")]
         public async Task<IActionResult> Update(Comment comment)
         {
-            Comment result = _commentRepository.Update(comment).Result.Entity;
+            Comment result = null; // _commentRepository.Update(comment).Result.Entity;
 
             IActionResult retVal = null;
             if (result != null)

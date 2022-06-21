@@ -1,8 +1,10 @@
-﻿namespace SocialNetwork.Persistence.DAL.CQRS.Queries.Response
+﻿using SocialNetwork.Application.Dto;
+
+namespace SocialNetwork.Persistence.DAL.CQRS.Queries.Response
 {
     public class GetAllMessageTypeQueryResponse
     {
-        public string Id { get; set; }
-        public string Type { get; set; }
+        public int MaxPage { get; set; }
+        public List<MessageTypeQueryResponseDTO> ListMessageTypeQueryResponse { get; set; }
     }
 }

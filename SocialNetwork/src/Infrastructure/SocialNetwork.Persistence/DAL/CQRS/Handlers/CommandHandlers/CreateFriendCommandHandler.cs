@@ -1,7 +1,10 @@
 ﻿using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
+using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.Caching.Distributed;
 using SocialNetwork.Application.Interfaces.Repositories;
+using SocialNetwork.Application.Interfaces.UnitOfWork;
 using SocialNetwork.Domain.Entities;
 using SocialNetwork.Persistence.Context;
 using SocialNetwork.Persistence.DAL.CQRS.Commands.Request;
@@ -12,30 +15,38 @@ namespace SocialNetwork.Persistence.DAL.CQRS.Handlers.CommandHandlers
 {
     public class CreateFriendCommandHandler : IRequestHandler<CreateFriendCommandRequest, CreateFriendCommandResponse>
     {
-        private readonly IFriendRepository _repo;
+        private readonly IUnitOfWork _unitOfWork;
         private readonly IDistributedCache _distributedCache;
-        public CreateFriendCommandHandler(IDistributedCache distributedCache, FriendRepository repo)
+        public CreateFriendCommandHandler(IDistributedCache distributedCache, IUnitOfWork unitOfWork)
         {
             _distributedCache = distributedCache;
-            _repo = repo;
+            _unitOfWork = unitOfWork;
         }
 
         public async Task<CreateFriendCommandResponse> Handle(CreateFriendCommandRequest createFriendCommandRequest, CancellationToken cancellationToken)
         {
             CreateFriendCommandResponse createFriendCommandResponse = new CreateFriendCommandResponse();
-
-            var result = await _repo.Add(
+            EntityEntry<Friend> result = null;
+            using IDbContextTransaction retVal = await _unitOfWork.BeginTansactionAsync();
+            try
+            {
+                result = await _unitOfWork.FriendRepository.Add(
                 new Friend
                 {
                     FriendUser = createFriendCommandRequest.FriendUser,
                     User = createFriendCommandRequest.User,
                     TimeToBeFriend = DateTime.Now
                 });
+                createFriendCommandResponse.IsSuccess = retVal.CommitAsync().IsCompletedSuccessfully;
+            }
+            catch (Exception ex)
+            {
+                await retVal.RollbackAsync();
+            }
 
-            createFriendCommandResponse.IsSuccess = result.State == EntityState.Added;
-            createFriendCommandResponse.Friend = result.Entity;
+            createFriendCommandResponse.Friend = result?.Entity;
 
-            if(createFriendCommandResponse.IsSuccess)
+            if (createFriendCommandResponse.IsSuccess)
             {
                 await _distributedCache.RemoveAsync("friends");
             }

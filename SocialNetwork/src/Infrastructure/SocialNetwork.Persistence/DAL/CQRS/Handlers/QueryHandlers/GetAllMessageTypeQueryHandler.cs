@@ -9,23 +9,25 @@ using System.Text.Json;
 using RabbitMQ.Client;
 using SocialNetwork.Persistence.Repository;
 using SocialNetwork.Application.Interfaces.Repositories;
+using SocialNetwork.Application.Interfaces.UnitOfWork;
+using SocialNetwork.Application.Dto;
 
 namespace SocialNetwork.Persistence.DAL.CQRS.Handlers.QueryHandlers
 {
-    public class GetAllMessageTypeQueryHandler : IRequestHandler<GetAllMessageTypeQueryRequest, PaginingResponse<List<GetAllMessageTypeQueryResponse>>>
+    public class GetAllMessageTypeQueryHandler : IRequestHandler<GetAllMessageTypeQueryRequest, GetAllMessageTypeQueryResponse>
     {
-        private readonly IMessageTypeRepository _repo;
         private readonly IDistributedCache _distributedCache;
+        private readonly IUnitOfWork _unitOfWork;
 
-        public GetAllMessageTypeQueryHandler(IDistributedCache distributedCache, MessageTypeRepository repo)
+        public GetAllMessageTypeQueryHandler(IUnitOfWork unitOfWork, IDistributedCache distributedCache)
         {
+            _unitOfWork = unitOfWork;
             _distributedCache = distributedCache;
-            _repo = repo;
         }
 
-        public async Task<PaginingResponse<List<GetAllMessageTypeQueryResponse>>> Handle(GetAllMessageTypeQueryRequest request, CancellationToken cancellationToken)
+        public async Task<GetAllMessageTypeQueryResponse> Handle(GetAllMessageTypeQueryRequest request, CancellationToken cancellationToken)
         {
-            PaginingResponse<List<GetAllMessageTypeQueryResponse>> getAllMessageTypeQueryResponse = new PaginingResponse<List<GetAllMessageTypeQueryResponse>>();
+            GetAllMessageTypeQueryResponse getAllMessageTypeQueryResponse = new GetAllMessageTypeQueryResponse();
 
             byte[] cachedBytes = _distributedCache.GetAsync("messageTypes").Result;
 
@@ -33,7 +35,7 @@ namespace SocialNetwork.Persistence.DAL.CQRS.Handlers.QueryHandlers
 
             if (cachedBytes == null)
             {
-                context = await _repo.GetAsync();
+                context = await _unitOfWork.MessageTypeRepository.GetAsync();
 
                 string jsonText = JsonSerializer.Serialize(context);
                 _distributedCache.SetAsync("messageTypes", Encoding.UTF8.GetBytes(jsonText));
@@ -54,21 +56,13 @@ namespace SocialNetwork.Persistence.DAL.CQRS.Handlers.QueryHandlers
                 context = context.Where(x => x.Type == request.Type).ToList();
             }
 
-            getAllMessageTypeQueryResponse.Total = context.Count();
+            getAllMessageTypeQueryResponse.MaxPage = (int)Math.Ceiling(context.Count() / (double)request.Limit);
 
-            //gelen sayfa ve limit değerleri kontrol edilecek.
-            getAllMessageTypeQueryResponse.Limit = request.Limit;
-            getAllMessageTypeQueryResponse.Page = request.Page;
-            getAllMessageTypeQueryResponse.Total = _repo.GetAsync().Result.Count();
-            getAllMessageTypeQueryResponse.TotalPage = (int)Math.Ceiling(getAllMessageTypeQueryResponse.Total / (double)getAllMessageTypeQueryResponse.Limit);
-            getAllMessageTypeQueryResponse.HasPrevious = getAllMessageTypeQueryResponse.Page != 1;
-            getAllMessageTypeQueryResponse.HasNext = getAllMessageTypeQueryResponse.Page != getAllMessageTypeQueryResponse.TotalPage;
+            int skip = (request.Page - 1) * request.Limit;
+            int take = request.Limit;
 
-            int skip = (getAllMessageTypeQueryResponse.Page - 1) * getAllMessageTypeQueryResponse.Limit;
-            int take = getAllMessageTypeQueryResponse.Limit;
-
-            getAllMessageTypeQueryResponse.Response = context.Select(m =>
-            new GetAllMessageTypeQueryResponse
+            getAllMessageTypeQueryResponse.ListMessageTypeQueryResponse = context.Select(m =>
+            new MessageTypeQueryResponseDTO
             {
                 Id = m.Id,
                 Type = m.Type

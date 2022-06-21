@@ -1,7 +1,10 @@
 ﻿using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
+using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.Caching.Distributed;
 using SocialNetwork.Application.Interfaces.Repositories;
+using SocialNetwork.Application.Interfaces.UnitOfWork;
 using SocialNetwork.Domain.Entities;
 using SocialNetwork.Persistence.Context;
 using SocialNetwork.Persistence.DAL.CQRS.Commands.Request;
@@ -12,28 +15,36 @@ namespace SocialNetwork.Persistence.DAL.CQRS.Handlers.CommandHandlers
 {
     public class CreateGroupCommandHandler : IRequestHandler<CreateGroupCommandRequest, CreateGroupCommandResponse>
     {
-        private readonly IGroupRepository _repo;
+        private readonly IUnitOfWork _unitOfWork;
         private readonly IDistributedCache _distributedCache;
-        public CreateGroupCommandHandler(IDistributedCache distributedCache, GroupRepository repo)
+        public CreateGroupCommandHandler(IDistributedCache distributedCache, IUnitOfWork unitOfWork)
         {
-            _repo = repo;
+            _unitOfWork = unitOfWork;
             _distributedCache = distributedCache;
         }
 
         public async Task<CreateGroupCommandResponse> Handle(CreateGroupCommandRequest createGroupCommandRequest, CancellationToken cancellationToken)
         {
             CreateGroupCommandResponse createGroupCommandResponse = new CreateGroupCommandResponse();
-
-            var result = await _repo.Add(
+            EntityEntry<Group> result = null;
+            using IDbContextTransaction retVal = await _unitOfWork.BeginTansactionAsync();
+            try
+            {
+                result = await _unitOfWork.GroupRepository.Add(
                 new Group
                 {
                     Name = createGroupCommandRequest.Name
                 });
+                createGroupCommandResponse.IsSuccess = retVal.CommitAsync().IsCompletedSuccessfully;
+            }
+            catch (Exception ex)
+            {
+                await retVal.RollbackAsync();
+            }
 
-            createGroupCommandResponse.IsSuccess = result.State == EntityState.Added;
-            createGroupCommandResponse.Group = result.Entity;
+            createGroupCommandResponse.Group = result?.Entity;
 
-            if(createGroupCommandResponse.IsSuccess)
+            if (createGroupCommandResponse.IsSuccess)
             {
                 await _distributedCache.RemoveAsync("group");
             }

@@ -1,7 +1,10 @@
 ﻿using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
+using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.Caching.Distributed;
 using SocialNetwork.Application.Interfaces.Repositories;
+using SocialNetwork.Application.Interfaces.UnitOfWork;
 using SocialNetwork.Domain.Entities;
 using SocialNetwork.Persistence.Context;
 using SocialNetwork.Persistence.DAL.CQRS.Commands.Request;
@@ -12,27 +15,36 @@ namespace SocialNetwork.Persistence.DAL.CQRS.Handlers.CommandHandlers
 {
     public class CreateGroupMemberCommandHandler : IRequestHandler<CreateGroupMemberCommandRequest, CreateGroupMemberCommandResponse>
     {
-        private readonly IGroupMemberRepository _repo;
+        private readonly IUnitOfWork _unitOfWork;
         private readonly IDistributedCache _distributedCache;
-        public CreateGroupMemberCommandHandler(IDistributedCache distributedCache, GroupMemberRepository repo)
+        public CreateGroupMemberCommandHandler(IDistributedCache distributedCache, IUnitOfWork unitOfWork)
         {
             _distributedCache = distributedCache;
-            _repo = repo;
+            _unitOfWork = unitOfWork;
         }
 
         public async Task<CreateGroupMemberCommandResponse> Handle(CreateGroupMemberCommandRequest createGroupMemberCommandRequest, CancellationToken cancellationToken)
         {
             CreateGroupMemberCommandResponse createGroupMemberCommandResponse = new CreateGroupMemberCommandResponse();
+            EntityEntry<GroupMember> result = null;
 
-            var result = await _repo.Add(
-                new GroupMember
-                {
-                    Group = createGroupMemberCommandRequest.Group,
-                    User = createGroupMemberCommandRequest.User
-                });
+            using IDbContextTransaction retVal = await _unitOfWork.BeginTansactionAsync();
+            try
+            {
+                result = await _unitOfWork.GroupMemberRepository.Add(
+                    new GroupMember
+                    {
+                        Group = createGroupMemberCommandRequest.Group,
+                        User = createGroupMemberCommandRequest.User
+                    });
+                createGroupMemberCommandResponse.IsSuccess = retVal.CommitAsync().IsCompletedSuccessfully;
+            }
+            catch (Exception ex)
+            {
+                await retVal.RollbackAsync();
+            }
 
-            createGroupMemberCommandResponse.IsSuccess = result.State == EntityState.Added;
-            createGroupMemberCommandResponse.GroupMember = result.Entity;
+            createGroupMemberCommandResponse.GroupMember = result?.Entity;
 
             if (createGroupMemberCommandResponse.IsSuccess)
             {

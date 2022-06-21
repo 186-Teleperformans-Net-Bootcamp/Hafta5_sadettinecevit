@@ -1,7 +1,9 @@
 ﻿using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
+using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.Caching.Distributed;
-using SocialNetwork.Application.Interfaces.Repositories;
+using SocialNetwork.Application.Interfaces.UnitOfWork;
 using SocialNetwork.Domain.Entities;
 using SocialNetwork.Persistence.Context;
 using SocialNetwork.Persistence.DAL.CQRS.Commands.Request;
@@ -12,32 +14,39 @@ namespace SocialNetwork.Persistence.DAL.CQRS.Handlers.CommandHandlers
 {
     public class CreateCommentCommandHandler : IRequestHandler<CreateCommentCommandRequest, CreateCommentCommandResponse>
     {
-        private readonly ICommentRepository _repo;
         private readonly IDistributedCache _distributedCache;
-        public CreateCommentCommandHandler(CommentRepository repo, IDistributedCache distributedCache)
+        private readonly IUnitOfWork _unitOfWork;
+        public CreateCommentCommandHandler(IUnitOfWork unitOfWork, IDistributedCache distributedCache)
         {
-            _repo = repo;
             _distributedCache = distributedCache;
+            _unitOfWork = unitOfWork;
         }
 
         public async Task<CreateCommentCommandResponse> Handle(CreateCommentCommandRequest createCommentCommandRequest, CancellationToken cancellationToken)
         {
             CreateCommentCommandResponse createCommentCommandResponse = new CreateCommentCommandResponse();
+            EntityEntry<Comment> result = null;
+            using IDbContextTransaction retVal = await _unitOfWork.BeginTansactionAsync();
+            try
+            {
+                result = await _unitOfWork.CommentRepository.Add(
+                    new Comment
+                    {
+                        FromUser = createCommentCommandRequest.FromUser,
+                        ToUser = createCommentCommandRequest.ToUser,
+                        CommentText = createCommentCommandRequest.CommentText,
+                        CommentTime = DateTime.Now,
+                        IsPrivate = createCommentCommandRequest.IsPrivate
+                    });
+                createCommentCommandResponse.IsSuccess = retVal.CommitAsync().IsCompletedSuccessfully;
+            }
+            catch (Exception ex)
+            {
+                await retVal.RollbackAsync();
+            }
 
-            var result = await _repo.Add(
-                new Comment
-                {
-                    FromUser = createCommentCommandRequest.FromUser,
-                    ToUser = createCommentCommandRequest.ToUser,
-                    CommentText = createCommentCommandRequest.CommentText,
-                    CommentTime = DateTime.Now,
-                    IsPrivate = createCommentCommandRequest.IsPrivate
-                });
-
-            createCommentCommandResponse.IsSuccess = result.State == EntityState.Added;
-            createCommentCommandResponse.Comment = result.Entity;
-
-            if(createCommentCommandResponse.IsSuccess)
+            createCommentCommandResponse.Comment = result?.Entity;
+            if (createCommentCommandResponse.IsSuccess)
             {
                 await _distributedCache.RemoveAsync("comments");
             }

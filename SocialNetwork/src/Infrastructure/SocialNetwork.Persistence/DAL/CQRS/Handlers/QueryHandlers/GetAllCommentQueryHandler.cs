@@ -1,31 +1,34 @@
 ﻿using MediatR;
 using Microsoft.Extensions.Caching.Distributed;
+using SocialNetwork.Application.Dto;
 using SocialNetwork.Application.Interfaces.Repositories;
+using SocialNetwork.Application.Interfaces.UnitOfWork;
 using SocialNetwork.Domain.Entities;
 using SocialNetwork.Persistence.Context;
 using SocialNetwork.Persistence.DAL.CQRS.Queries;
 using SocialNetwork.Persistence.DAL.CQRS.Queries.Request;
 using SocialNetwork.Persistence.DAL.CQRS.Queries.Response;
 using SocialNetwork.Persistence.Repository;
+using SocialNetwork.Persistence.UnitOfWork;
 using System.Text;
 using System.Text.Json;
 
 namespace SocialNetwork.Persistence.DAL.CQRS.Handlers.QueryHandlers
 {
-    public class GetAllCommentQueryHandler : IRequestHandler<GetAllCommentQueryRequest, PaginingResponse<List<GetAllCommentQueryResponse>>>
+    public class GetAllCommentQueryHandler : IRequestHandler<GetAllCommentQueryRequest, GetAllCommentQueryResponse>
     {
-        private readonly ICommentRepository _repo;
         private readonly IDistributedCache _distributedCache;
+        private readonly IUnitOfWork _unitOfWork;
 
-        public GetAllCommentQueryHandler(CommentRepository repo, IDistributedCache distributedCache)
+        public GetAllCommentQueryHandler(IUnitOfWork unitOfWork, IDistributedCache distributedCache)
         {
-            _repo = repo;
+            _unitOfWork = unitOfWork;
             _distributedCache = distributedCache;
         }
 
-        public async Task<PaginingResponse<List<GetAllCommentQueryResponse>>> Handle(GetAllCommentQueryRequest request, CancellationToken cancellationToken)
+        public async Task<GetAllCommentQueryResponse> Handle(GetAllCommentQueryRequest request, CancellationToken cancellationToken)
         {
-            PaginingResponse<List<GetAllCommentQueryResponse>> getAllCommentQueryResponse = new PaginingResponse<List<GetAllCommentQueryResponse>>();
+            GetAllCommentQueryResponse getAllCommentQueryResponse = new GetAllCommentQueryResponse();
 
             byte[] cachedBytes = _distributedCache.GetAsync("comments").Result;
 
@@ -33,7 +36,7 @@ namespace SocialNetwork.Persistence.DAL.CQRS.Handlers.QueryHandlers
 
             if(cachedBytes == null)
             {
-                context = _repo.GetAsync().Result;
+                context = _unitOfWork.CommentRepository.GetAsync().Result;
 
                 string jsonText = JsonSerializer.Serialize(context);
                 _distributedCache.SetAsync("comments", Encoding.UTF8.GetBytes(jsonText));
@@ -57,18 +60,13 @@ namespace SocialNetwork.Persistence.DAL.CQRS.Handlers.QueryHandlers
                 context = context.Where(x => x.FromUser.Name.Contains(request.ToUserName) || x.ToUser.Name.Contains(request.ToUserName)).ToList();
             }
 
-            getAllCommentQueryResponse.Total = context.Count();
-            getAllCommentQueryResponse.Limit = request.Limit;
-            getAllCommentQueryResponse.Page = request.Page;
-            getAllCommentQueryResponse.TotalPage = (int)Math.Ceiling(getAllCommentQueryResponse.Total / (double)getAllCommentQueryResponse.Limit);
-            getAllCommentQueryResponse.HasPrevious = getAllCommentQueryResponse.Page != 1;
-            getAllCommentQueryResponse.HasNext = getAllCommentQueryResponse.Page != getAllCommentQueryResponse.TotalPage;
+            getAllCommentQueryResponse.MaxPage = (int)Math.Ceiling(context.Count() / (double)request.Limit);
 
-            int skip = (getAllCommentQueryResponse.Page - 1) * getAllCommentQueryResponse.Limit;
-            int take = getAllCommentQueryResponse.Limit;
+            int skip = (request.Page - 1) * request.Limit;
+            int take = request.Limit;
 
-            getAllCommentQueryResponse.Response = context.Select(c => 
-            new GetAllCommentQueryResponse
+            getAllCommentQueryResponse.ListCommentQueryResponse = context.Select(c => 
+            new CommentQueryResponseDTO
              {
                  CommentText = c.CommentText,
                  FromUser = c.FromUser,

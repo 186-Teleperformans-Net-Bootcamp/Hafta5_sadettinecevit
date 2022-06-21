@@ -1,8 +1,9 @@
-﻿namespace SocialNetwork.Persistence.DAL.CQRS.Queries.Response
+﻿using SocialNetwork.Application.Dto;
+
+namespace SocialNetwork.Persistence.DAL.CQRS.Queries.Response
 {
     public class GetByIdMessageTypeQueryResponse
     {
-        public string Id { get; set; }
-        public string Type { get; set; }
+        public MessageTypeQueryResponseDTO MessageTypeQueryResponse { get; set; }
     }
 }

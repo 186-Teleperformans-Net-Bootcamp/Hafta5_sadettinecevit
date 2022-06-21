@@ -1,8 +1,9 @@
 ﻿using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
+using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.Caching.Distributed;
-using SocialNetwork.Application.Interfaces.Repositories;
+using SocialNetwork.Application.Interfaces.UnitOfWork;
 using SocialNetwork.Domain.Entities;
 using SocialNetwork.Persistence.DAL.CQRS.Commands.Request;
 using SocialNetwork.Persistence.DAL.CQRS.Commands.Response;
@@ -12,11 +13,11 @@ namespace SocialNetwork.Persistence.DAL.CQRS.Handlers.CommandHandlers
 {
     public class DeleteGroupMemberCommandHandler : IRequestHandler<DeleteGroupMemberCommandRequest, DeleteGroupMemberCommandResponse>
     {
-        private readonly IGroupMemberRepository _repo;
+        private readonly IUnitOfWork _unitOfWork;
         private readonly IDistributedCache _distributedCache;
-        public DeleteGroupMemberCommandHandler(IDistributedCache distributedCache, GroupMemberRepository repo)
+        public DeleteGroupMemberCommandHandler(IDistributedCache distributedCache, IUnitOfWork unitOfWork)
         {
-            _repo = repo;
+            _unitOfWork = unitOfWork;
             _distributedCache = distributedCache;
         }
 
@@ -24,11 +25,22 @@ namespace SocialNetwork.Persistence.DAL.CQRS.Handlers.CommandHandlers
         {
             DeleteGroupMemberCommandResponse deleteGroupMemberCommandResponse = new DeleteGroupMemberCommandResponse();
 
-            GroupMember groupMember = _repo.GetAsync().Result.FirstOrDefault<GroupMember>(g => g.Id == deleteGroupMemberCommandRequest.Id);
-            EntityEntry<GroupMember> result = _repo.Delete(groupMember).Result;
-            deleteGroupMemberCommandResponse.IsSuccess = result.State == EntityState.Deleted;
+            GroupMember groupMember = _unitOfWork.GroupMemberRepository.GetAsync().Result.FirstOrDefault<GroupMember>(g => g.Id == deleteGroupMemberCommandRequest.Id);
+            EntityEntry<GroupMember> result = null;
 
-            if(deleteGroupMemberCommandResponse.IsSuccess)
+            using IDbContextTransaction retVal = await _unitOfWork.BeginTansactionAsync();
+
+            try
+            {
+                result = _unitOfWork.GroupMemberRepository.Delete(groupMember).Result;
+                deleteGroupMemberCommandResponse.IsSuccess = retVal.CommitAsync().IsCompletedSuccessfully;
+            }
+            catch (Exception ex)
+            {
+                await retVal.RollbackAsync();
+            }
+
+            if (deleteGroupMemberCommandResponse.IsSuccess)
             {
                 await _distributedCache.RemoveAsync("groupMembers");
             }

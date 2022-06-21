@@ -1,9 +1,9 @@
 ﻿using MediatR;
 using Microsoft.Extensions.Caching.Distributed;
+using SocialNetwork.Application.Dto;
 using SocialNetwork.Application.Interfaces.Repositories;
+using SocialNetwork.Application.Interfaces.UnitOfWork;
 using SocialNetwork.Domain.Entities;
-using SocialNetwork.Persistence.Context;
-using SocialNetwork.Persistence.DAL.CQRS.Queries;
 using SocialNetwork.Persistence.DAL.CQRS.Queries.Request;
 using SocialNetwork.Persistence.DAL.CQRS.Queries.Response;
 using SocialNetwork.Persistence.Repository;
@@ -12,19 +12,19 @@ using System.Text.Json;
 
 namespace SocialNetwork.Persistence.DAL.CQRS.Handlers.QueryHandlers
 {
-    public class GetAllMessageQueryHandler : IRequestHandler<GetAllMessageQueryRequest, PaginingResponse<List<GetAllMessageQueryResponse>>>
+    public class GetAllMessageQueryHandler : IRequestHandler<GetAllMessageQueryRequest, GetAllMessageQueryResponse>
     {
-        private readonly IMessageRepository _repo;
+        private readonly IUnitOfWork _repo;
         private readonly IDistributedCache _distributedCache;
-        public GetAllMessageQueryHandler(IDistributedCache distributedCache, MessageRepository repo)
+        public GetAllMessageQueryHandler(IDistributedCache distributedCache, IUnitOfWork repo)
         {
             _distributedCache = distributedCache;
             _repo = repo;
         }
 
-        public async Task<PaginingResponse<List<GetAllMessageQueryResponse>>> Handle(GetAllMessageQueryRequest request, CancellationToken cancellationToken)
+        public async Task<GetAllMessageQueryResponse> Handle(GetAllMessageQueryRequest request, CancellationToken cancellationToken)
         {
-            PaginingResponse<List<GetAllMessageQueryResponse>> getAllMessageQueryResponse = new PaginingResponse<List<GetAllMessageQueryResponse>>();
+            GetAllMessageQueryResponse getAllMessageQueryResponse = new GetAllMessageQueryResponse();
 
             byte[] cachedBytes = _distributedCache.GetAsync("messages").Result;
 
@@ -32,7 +32,7 @@ namespace SocialNetwork.Persistence.DAL.CQRS.Handlers.QueryHandlers
 
             if (cachedBytes == null)
             {
-                messages = _repo.GetAsync().Result;
+                messages = _repo.MessageRepository.GetAsync().Result;
 
                 string jsonText = JsonSerializer.Serialize(messages);
                 _distributedCache.SetAsync("messages", Encoding.UTF8.GetBytes(jsonText));
@@ -53,19 +53,13 @@ namespace SocialNetwork.Persistence.DAL.CQRS.Handlers.QueryHandlers
                 messages = messages.Where(x => x.FromUser.Name == request.ToUserName && x.ToUsers.Any(k => k.UserName == request.ToUserName)).ToList();
             }
 
-            getAllMessageQueryResponse.Total = messages.Count();
-            //gelen sayfa ve limit değerleri kontrol edilecek.
-            getAllMessageQueryResponse.Limit = request.Limit;
-            getAllMessageQueryResponse.Page = request.Page;
-            getAllMessageQueryResponse.TotalPage = (int)Math.Ceiling(getAllMessageQueryResponse.Total / (double)getAllMessageQueryResponse.Limit);
-            getAllMessageQueryResponse.HasPrevious = getAllMessageQueryResponse.Page != 1;
-            getAllMessageQueryResponse.HasNext = getAllMessageQueryResponse.Page != getAllMessageQueryResponse.TotalPage;
+            getAllMessageQueryResponse.MaxPage = (int)Math.Ceiling(messages.Count() / (double)request.Limit);
 
-            int skip = (getAllMessageQueryResponse.Page - 1) * getAllMessageQueryResponse.Limit;
-            int take = getAllMessageQueryResponse.Limit;
+            int skip = (request.Page - 1) * request.Limit;
+            int take = request.Limit;
 
-            getAllMessageQueryResponse.Response = messages.Select(m => 
-            new GetAllMessageQueryResponse
+            getAllMessageQueryResponse.ListMessageQueryResponse = messages.Select(m => 
+            new MessageQueryResponseDTO
             {
                 Id = m.Id,
                 FromUser = m.FromUser,

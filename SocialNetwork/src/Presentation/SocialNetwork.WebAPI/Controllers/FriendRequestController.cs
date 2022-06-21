@@ -50,20 +50,19 @@ namespace SocialNetwork.WebAPI.Controllers
         public async Task<IActionResult> GetAll([FromQuery] GetAllFriendRequestQueryRequest request)
         {
             IActionResult retVal = null;
-            PaginingResponse<List<GetAllFriendRequestQueryResponse>> result = await _mediator.Send(request);
-            
-            Response.Headers.Add("x-Pagination", JsonSerializer.Serialize(
-                new
-                {
-                    result.Total,
-                    result.TotalPage,
-                    result.Page,
-                    result.Limit,
-                    result.HasPrevious,
-                    result.HasNext
-                }));
+            GetAllFriendRequestQueryResponse result = await _mediator.Send(request);
 
-            retVal = Ok(result.Response);
+            Response.Headers.Add("x-Pagination", JsonSerializer.Serialize(
+            new
+            {
+                result.MaxPage,
+                request.Page,
+                request.Limit,
+                HasPrevious = request.Page != 1,
+                HasNext = request.Page < result.MaxPage
+            }));
+
+            retVal = Ok(result.ListFriendRequestQueryResponse);
 
             return retVal;
         }

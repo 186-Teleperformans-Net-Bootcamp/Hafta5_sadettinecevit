@@ -1,6 +1,8 @@
 ﻿using MediatR;
 using Microsoft.Extensions.Caching.Distributed;
+using SocialNetwork.Application.Dto;
 using SocialNetwork.Application.Interfaces.Repositories;
+using SocialNetwork.Application.Interfaces.UnitOfWork;
 using SocialNetwork.Domain.Entities;
 using SocialNetwork.Persistence.Context;
 using SocialNetwork.Persistence.DAL.CQRS.Queries;
@@ -12,19 +14,19 @@ using System.Text.Json;
 
 namespace SocialNetwork.Persistence.DAL.CQRS.Handlers.QueryHandlers
 {
-    public class GetAllFriendQueryHandler : IRequestHandler<GetAllFriendQueryRequest, PaginingResponse<List<GetAllFriendQueryResponse>>>
+    public class GetAllFriendQueryHandler : IRequestHandler<GetAllFriendQueryRequest, GetAllFriendQueryResponse>
     {
-        private readonly IFriendRepository _repo;
+        private readonly IUnitOfWork _unitOfWork;
         private readonly IDistributedCache _distributedCache;
-        public GetAllFriendQueryHandler(IDistributedCache distributedCache, FriendRepository repo)
+        public GetAllFriendQueryHandler(IDistributedCache distributedCache, IUnitOfWork unitOfWork)
         {
             _distributedCache = distributedCache;
-            _repo = repo;
+            _unitOfWork = unitOfWork;
         }
 
-        public async Task<PaginingResponse<List<GetAllFriendQueryResponse>>> Handle(GetAllFriendQueryRequest request, CancellationToken cancellationToken)
+        public async Task<GetAllFriendQueryResponse> Handle(GetAllFriendQueryRequest request, CancellationToken cancellationToken)
         {
-            PaginingResponse<List<GetAllFriendQueryResponse>> getAllFriendQueryResponse = new PaginingResponse<List<GetAllFriendQueryResponse>>();
+            GetAllFriendQueryResponse getAllFriendQueryResponse = new GetAllFriendQueryResponse();
 
             byte[] cachedBytes = _distributedCache.GetAsync("friends").Result;
 
@@ -32,7 +34,7 @@ namespace SocialNetwork.Persistence.DAL.CQRS.Handlers.QueryHandlers
 
             if (cachedBytes == null)
             {
-                context = _repo.GetAsync().Result;
+                context = _unitOfWork.FriendRepository.GetAsync().Result;
 
                 string jsonText = JsonSerializer.Serialize(context);
                 _distributedCache.SetAsync("friends", Encoding.UTF8.GetBytes(jsonText));
@@ -56,19 +58,13 @@ namespace SocialNetwork.Persistence.DAL.CQRS.Handlers.QueryHandlers
                 context = context.Where(x => x.FriendUser.Name == request.FriendUserName || x.User.Name == request.UserName).ToList();
             }
 
-            getAllFriendQueryResponse.Total = context.Count();
-            // bu kısım kendini tekrar ediyor bir metot olabilirdi.
-            getAllFriendQueryResponse.Limit = request.Limit;
-            getAllFriendQueryResponse.Page = request.Page;
-            getAllFriendQueryResponse.TotalPage = (int)Math.Ceiling(getAllFriendQueryResponse.Total / (double)getAllFriendQueryResponse.Limit);
-            getAllFriendQueryResponse.HasPrevious = getAllFriendQueryResponse.Page != 1;
-            getAllFriendQueryResponse.HasNext = getAllFriendQueryResponse.Page != getAllFriendQueryResponse.TotalPage;
+            getAllFriendQueryResponse.MaxPage = (int)Math.Ceiling(context.Count() / (double)request.Limit);
 
-            int skip = (getAllFriendQueryResponse.Page - 1) * getAllFriendQueryResponse.Limit;
-            int take = getAllFriendQueryResponse.Limit;
+            int skip = (request.Page - 1) * request.Limit;
+            int take = request.Limit;
 
-            getAllFriendQueryResponse.Response = context.Select(f => 
-            new GetAllFriendQueryResponse
+            getAllFriendQueryResponse.ListFriendQueryResponse = context.Select(f => 
+            new FriendQueryResponseDTO
             {
                 Id = f.Id,
                 FriendUser = f.FriendUser,

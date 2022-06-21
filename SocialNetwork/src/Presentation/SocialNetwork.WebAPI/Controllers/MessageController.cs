@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SocialNetwork.Application.Interfaces.Repositories;
+using SocialNetwork.Application.Interfaces.UnitOfWork;
 using SocialNetwork.Domain.Entities;
 using SocialNetwork.Persistence.DAL.CQRS.Commands.Request;
 using SocialNetwork.Persistence.DAL.CQRS.Commands.Response;
@@ -48,20 +49,19 @@ namespace SocialNetwork.WebAPI.Controllers
         public async Task<IActionResult> GetAll([FromQuery] GetAllMessageQueryRequest request)
         {
             IActionResult retVal = null;
-            PaginingResponse < List <GetAllMessageQueryResponse>> result = await _mediator.Send(request);
+            GetAllMessageQueryResponse result = await _mediator.Send(request);
 
             Response.Headers.Add("x-Pagination", JsonSerializer.Serialize(
                 new
                 {
-                    result.Total,
-                    result.TotalPage,
-                    result.Page,
-                    result.Limit,
-                    result.HasPrevious,
-                    result.HasNext
+                    result.MaxPage,
+                    request.Page,
+                    request.Limit,
+                    HasPrevious = request.Page != 1,
+                    HasNext = request.Page < result.MaxPage
                 }));
 
-            retVal = Ok(result.Response);
+            retVal = Ok(result.ListMessageQueryResponse);
 
             return retVal;
         }

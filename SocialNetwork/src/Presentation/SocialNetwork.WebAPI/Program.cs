@@ -5,13 +5,14 @@ using SocialNetwork.Domain.Entities;
 using SocialNetwork.Persistence;
 using SocialNetwork.Persistence.Context;
 using System.Text;
-using Microsoft.Extensions.Caching.StackExchangeRedis;
+using SocialNetwork.Infrastructure;
 
 var builder = WebApplication.CreateBuilder(args);
 
 var configuration = builder.Configuration;
 // Add services to the container.
 builder.Services.AddPersistenceService(configuration);
+builder.Services.AddInfrastructureService(configuration);
 
 builder.Services.AddIdentity<User, IdentityRole>()
                 .AddRoles<IdentityRole>()

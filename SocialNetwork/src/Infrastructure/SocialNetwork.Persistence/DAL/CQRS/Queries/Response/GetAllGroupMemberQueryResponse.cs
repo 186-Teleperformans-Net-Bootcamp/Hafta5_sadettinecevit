@@ -1,11 +1,11 @@
-﻿using SocialNetwork.Domain.Entities;
+﻿using SocialNetwork.Application.Dto;
+using SocialNetwork.Domain.Entities;
 
 namespace SocialNetwork.Persistence.DAL.CQRS.Queries.Response
 {
     public class GetAllGroupMemberQueryResponse
     {
-        public string Id { get; set; }
-        public Group Group { get; set; }
-        public User User { get; set; }
+        public int MaxPage { get; set; }
+        public List<GroupMemberQueryResponseDTO> ListGroupMemberQueryResponse { get; set; }
     }
 }

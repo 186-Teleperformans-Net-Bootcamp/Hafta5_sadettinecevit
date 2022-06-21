@@ -1,13 +1,10 @@
-﻿using SocialNetwork.Domain.Entities;
+﻿using SocialNetwork.Application.Dto;
 
 namespace SocialNetwork.Persistence.DAL.CQRS.Queries.Response
 {
     public class GetAllCommentQueryResponse
     {
-        public string Id { get; set; }
-        public User FromUser { get; set; }
-        public User ToUser { get; set; }
-        public bool IsPrivate { get; set; }
-        public string CommentText { get; set; }
+        public int MaxPage { get; set; }
+        public List<CommentQueryResponseDTO> ListCommentQueryResponse { get; set; }
     }
 }

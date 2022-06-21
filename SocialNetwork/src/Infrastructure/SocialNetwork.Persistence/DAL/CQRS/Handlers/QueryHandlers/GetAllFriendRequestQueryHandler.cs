@@ -1,6 +1,8 @@
 ﻿using MediatR;
 using Microsoft.Extensions.Caching.Distributed;
+using SocialNetwork.Application.Dto;
 using SocialNetwork.Application.Interfaces.Repositories;
+using SocialNetwork.Application.Interfaces.UnitOfWork;
 using SocialNetwork.Domain.Entities;
 using SocialNetwork.Persistence.Context;
 using SocialNetwork.Persistence.DAL.CQRS.Queries;
@@ -12,19 +14,19 @@ using System.Text.Json;
 
 namespace SocialNetwork.Persistence.DAL.CQRS.Handlers.QueryHandlers
 {
-    public class GetAllFriendRequestQueryHandler : IRequestHandler<GetAllFriendRequestQueryRequest, PaginingResponse<List<GetAllFriendRequestQueryResponse>>>
+    public class GetAllFriendRequestQueryHandler : IRequestHandler<GetAllFriendRequestQueryRequest, GetAllFriendRequestQueryResponse>
     {
-        private readonly IFriendRequestRepository _repo;
+        private readonly IUnitOfWork _unitOfWork;
         private readonly IDistributedCache _distributedCache;
-        public GetAllFriendRequestQueryHandler(IDistributedCache distributedCache, FriendRequestRepository repo)
+        public GetAllFriendRequestQueryHandler(IDistributedCache distributedCache, IUnitOfWork unitOfWork)
         {
             _distributedCache = distributedCache;
-            _repo = repo;
+            _unitOfWork = unitOfWork;
         }
 
-        public async Task<PaginingResponse<List<GetAllFriendRequestQueryResponse>>> Handle(GetAllFriendRequestQueryRequest request, CancellationToken cancellationToken)
+        public async Task<GetAllFriendRequestQueryResponse> Handle(GetAllFriendRequestQueryRequest request, CancellationToken cancellationToken)
         {
-            PaginingResponse<List<GetAllFriendRequestQueryResponse>> getAllFriendRequestQueryResponse = new PaginingResponse<List<GetAllFriendRequestQueryResponse>>();
+            GetAllFriendRequestQueryResponse getAllFriendRequestQueryResponse = new GetAllFriendRequestQueryResponse();
 
             byte[] cachedBytes = _distributedCache.GetAsync("friendRequest").Result;
 
@@ -32,7 +34,7 @@ namespace SocialNetwork.Persistence.DAL.CQRS.Handlers.QueryHandlers
 
             if (cachedBytes == null)
             {
-                context = _repo.GetAsync().Result;
+                context = _unitOfWork.FriendRequestRepository.GetAsync().Result;
 
                 string jsonText = JsonSerializer.Serialize(context);
                 _distributedCache.SetAsync("friendRequest", Encoding.UTF8.GetBytes(jsonText));
@@ -56,19 +58,13 @@ namespace SocialNetwork.Persistence.DAL.CQRS.Handlers.QueryHandlers
                 context = context.Where(x => x.FromUser.Name.Contains(request.ToUserName) || x.ToUser.Name.Contains(request.ToUserName)).ToList();
             }
 
-            getAllFriendRequestQueryResponse.Total = context.Count();
-            //gelen sayfa ve limit değerleri kontrol edilecek.
-            getAllFriendRequestQueryResponse.Limit = request.Limit;
-            getAllFriendRequestQueryResponse.Page = request.Page;
-            getAllFriendRequestQueryResponse.TotalPage = (int)Math.Ceiling(getAllFriendRequestQueryResponse.Total / (double)getAllFriendRequestQueryResponse.Limit);
-            getAllFriendRequestQueryResponse.HasPrevious = getAllFriendRequestQueryResponse.Page != 1;
-            getAllFriendRequestQueryResponse.HasNext = getAllFriendRequestQueryResponse.Page != getAllFriendRequestQueryResponse.TotalPage;
+            getAllFriendRequestQueryResponse.MaxPage = (int)Math.Ceiling(context.Count() / (double)request.Limit);
 
-            int skip = (getAllFriendRequestQueryResponse.Page - 1) * getAllFriendRequestQueryResponse.Limit;
-            int take = getAllFriendRequestQueryResponse.Limit;
+            int skip = (request.Page - 1) * request.Limit;
+            int take = request.Limit;
 
-            getAllFriendRequestQueryResponse.Response = context.Select(f =>
-            new GetAllFriendRequestQueryResponse
+            getAllFriendRequestQueryResponse.ListFriendRequestQueryResponse = context.Select(f =>
+            new FriendRequestQueryResponseDTO
             {
                 Id = f.Id,
                 FromUser = f.FromUser,

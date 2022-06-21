@@ -1,6 +1,8 @@
 ﻿using MediatR;
 using Microsoft.Extensions.Caching.Distributed;
+using SocialNetwork.Application.Dto;
 using SocialNetwork.Application.Interfaces.Repositories;
+using SocialNetwork.Application.Interfaces.UnitOfWork;
 using SocialNetwork.Domain.Entities;
 using SocialNetwork.Persistence.Context;
 using SocialNetwork.Persistence.DAL.CQRS.Queries;
@@ -12,20 +14,20 @@ using System.Text.Json;
 
 namespace SocialNetwork.Persistence.DAL.CQRS.Handlers.QueryHandlers
 {
-    public class GetAllUpdatedMessageQueryHandler : IRequestHandler<GetAllUpdatedMessageQueryRequest, PaginingResponse<List<GetAllUpdatedMessageQueryResponse>>>
+    public class GetAllUpdatedMessageQueryHandler : IRequestHandler<GetAllUpdatedMessageQueryRequest, GetAllUpdatedMessageQueryResponse>
     {
-        private readonly IUpdatedMessageRepository _repo;
+        private readonly IUnitOfWork _unitOfWork;
         private readonly IDistributedCache _distributedCache;
 
-        public GetAllUpdatedMessageQueryHandler(UpdatedMessageRepository repo, IDistributedCache distributedCache)
+        public GetAllUpdatedMessageQueryHandler(IUnitOfWork unitOfWork, IDistributedCache distributedCache)
         {
-            _repo = repo;
+            _unitOfWork = unitOfWork;
             _distributedCache = distributedCache;
         }
 
-        public async Task<PaginingResponse<List<GetAllUpdatedMessageQueryResponse>>> Handle(GetAllUpdatedMessageQueryRequest request, CancellationToken cancellationToken)
+        public async Task<GetAllUpdatedMessageQueryResponse> Handle(GetAllUpdatedMessageQueryRequest request, CancellationToken cancellationToken)
         {
-            PaginingResponse<List<GetAllUpdatedMessageQueryResponse>> getAllUpdatedMessageQueryResponse = new PaginingResponse<List<GetAllUpdatedMessageQueryResponse>>();
+            GetAllUpdatedMessageQueryResponse getAllUpdatedMessageQueryResponse = new GetAllUpdatedMessageQueryResponse();
 
             byte[] cachedBytes = _distributedCache.GetAsync("updatedMessages").Result;
 
@@ -33,7 +35,7 @@ namespace SocialNetwork.Persistence.DAL.CQRS.Handlers.QueryHandlers
 
             if (cachedBytes == null)
             {
-                context = _repo.GetAsync().Result;
+                context = _unitOfWork.UpdatedMessageRepository.GetAsync().Result;
 
                 string jsonText = JsonSerializer.Serialize(context);
                 _distributedCache.SetAsync("updatedMessages", Encoding.UTF8.GetBytes(jsonText));
@@ -58,19 +60,13 @@ namespace SocialNetwork.Persistence.DAL.CQRS.Handlers.QueryHandlers
                 context = context.Where(x => x.SendTime == request.SendTime).ToList();
             }
 
-            getAllUpdatedMessageQueryResponse.Total = context.Count();
-            //gelen sayfa ve limit değerleri kontrol edilecek.
-            getAllUpdatedMessageQueryResponse.Limit = request.Limit;
-            getAllUpdatedMessageQueryResponse.Page = request.Page;
-            getAllUpdatedMessageQueryResponse.TotalPage = (int)Math.Ceiling(getAllUpdatedMessageQueryResponse.Total / (double)getAllUpdatedMessageQueryResponse.Limit);
-            getAllUpdatedMessageQueryResponse.HasPrevious = getAllUpdatedMessageQueryResponse.Page != 1;
-            getAllUpdatedMessageQueryResponse.HasNext = getAllUpdatedMessageQueryResponse.Page != getAllUpdatedMessageQueryResponse.TotalPage;
+            getAllUpdatedMessageQueryResponse.MaxPage = (int)Math.Ceiling(context.Count() / (double)request.Limit);
 
-            int skip = (getAllUpdatedMessageQueryResponse.Page - 1) * getAllUpdatedMessageQueryResponse.Limit;
-            int take = getAllUpdatedMessageQueryResponse.Limit;
+            int skip = (request.Page - 1) * request.Limit;
+            int take = request.Limit;
 
-            getAllUpdatedMessageQueryResponse.Response = context.Select(u =>
-            new GetAllUpdatedMessageQueryResponse
+            getAllUpdatedMessageQueryResponse.ListUpdatedMessageQueryResponse = context.Select(u =>
+            new UpdatedMessageQueryResponseDTO
             {
                 Id = u.Id,
                 Message = u.Message,

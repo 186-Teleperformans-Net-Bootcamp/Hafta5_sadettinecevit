@@ -3,13 +3,14 @@ using Microsoft.AspNetCore.Identity;
 using SocialNetwork.Domain.Entities;
 using SocialNetwork.Persistence.DAL.CQRS.Queries.Request;
 using SocialNetwork.Persistence.DAL.CQRS.Queries.Response;
+using SocialNetwork.Application.Dto;
 
 namespace SocialNetwork.Persistence.DAL.CQRS.Handlers.QueryHandlers
 {
     public class GetByIdUserQueryHandler : IRequestHandler<GetByIdUserQueryRequest, GetByIdUserQueryResponse>
     {
         private readonly UserManager<User> _userManager;
-        
+
         //Distributed Cache kullanılabilir.
         public GetByIdUserQueryHandler(UserManager<User> userManager)
         {
@@ -21,11 +22,14 @@ namespace SocialNetwork.Persistence.DAL.CQRS.Handlers.QueryHandlers
             User result = _userManager.FindByIdAsync(request.Id).Result;
             GetByIdUserQueryResponse getByIdUserQueryResponse = new GetByIdUserQueryResponse()
             {
-                Email = result.Email,
-                Id = result.Id,
-                LastName = result.LastName,
-                Name = result.Name,
-                UserName = result.UserName
+                userQueryResponse = new UserQueryResponseDTO()
+                {
+                    Email = result.Email,
+                    Id = result.Id,
+                    LastName = result.LastName,
+                    Name = result.Name,
+                    UserName = result.UserName
+                }
             };
 
             return getByIdUserQueryResponse;
