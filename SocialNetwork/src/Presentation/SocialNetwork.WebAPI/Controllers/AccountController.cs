@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
 using SocialNetwork.Application.Dto;
 using SocialNetwork.Domain.Entities;
+using SocialNetwork.Infrastructure.Services.MessageQueue;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
@@ -19,14 +20,17 @@ namespace SocialNetwork.WebAPI.Controllers
         private readonly RoleManager<IdentityRole> _roleManager;
         private readonly SignInManager<User> _signInManager;
         private readonly IConfiguration _configuration;
+        private readonly IRabbitMqService _rabbitMq;
+
         public AccountController(UserManager<User> userManager
             , IConfiguration configuration, RoleManager<IdentityRole> roleManager
-            , SignInManager<User> signInManager)
+            , SignInManager<User> signInManager, IRabbitMqService rabbitMq)
         {
             _userManager = userManager;
             _configuration = configuration;
             _roleManager = roleManager;
             _signInManager = signInManager;
+            _rabbitMq = rabbitMq;
         }
 
         [HttpPost("Login")]
@@ -85,6 +89,8 @@ namespace SocialNetwork.WebAPI.Controllers
                             token = jwt,
                             expiration = token.ValidTo
                         });
+
+                        _rabbitMq.Puslish(new MessageQueueType { EventDescription = $"{user.UserName} adlı kullanıcı login oldu." });
                     }
                 }
             }
