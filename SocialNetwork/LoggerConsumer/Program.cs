@@ -1,7 +1,7 @@
 ﻿// See https://aka.ms/new-console-template for more information
 
-using LoggerConsumer.Concrete;
-using LoggerConsumer.Interfaces;
+using LoggerService.Concrete;
+using LoggerService.Interfaces;
 
 IRabbitMqService consumer = new RabbitMqService();
 

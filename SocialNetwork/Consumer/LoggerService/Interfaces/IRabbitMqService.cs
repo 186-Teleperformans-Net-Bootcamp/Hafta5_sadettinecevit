@@ -1,5 +1,4 @@
 ﻿using RabbitMQ.Client;
-using SocialNetwork.Infrastructure.Services.MessageQueue;
 
 namespace LoggerService.Interfaces
 {

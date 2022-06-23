@@ -31,11 +31,18 @@ namespace SocialNetwork.Infrastructure.Services.MessageQueue
             using var channel = connection.CreateModel();
             channel.ExchangeDeclare("fanout.logger", ExchangeType.Fanout, false, false);
 
-            channel.QueueDeclare("fanout.loggerWorker", false, false, false);
+            channel.QueueDeclare(
+                queue: "fanout.loggerWorker", 
+                durable: false,
+                exclusive: false,
+                autoDelete: false);
             channel.QueueBind("fanout.loggerWorker", "fanout.logger", string.Empty);
 
             var jsonString = JsonSerializer.Serialize(message);
             channel.BasicPublish("fanout.logger", string.Empty, null, Encoding.UTF8.GetBytes(jsonString));
+
+            channel.Close();
+            connection.Close();
         }
     }
 }

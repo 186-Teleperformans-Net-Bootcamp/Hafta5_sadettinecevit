@@ -1,4 +1,4 @@
-﻿using LoggerConsumer.Interfaces;
+﻿using LoggerService.Interfaces;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
 using SocialNetwork.Infrastructure.Services.MessageQueue;
@@ -9,7 +9,7 @@ using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 
-namespace LoggerConsumer.Concrete
+namespace LoggerService.Concrete
 {
     public class RabbitMqService : IRabbitMqService
     {
